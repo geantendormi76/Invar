@@ -1,4 +1,4 @@
-from typing import Any, Dict, Optional
+from typing import Any, Dict, List, Optional
 
 from harness.models import EndpointIR
 from harness.research_models import ResearchExecutionResult
@@ -60,7 +60,7 @@ class ResearchTaskAdapter:
         base_url: Optional[str] = None,
     ) -> Dict[str, Any]:
         """
-        承接跨语言任务调用，驱动沙箱执行器并返回跨语言标准战报
+        承接跨语言单任务调用，驱动沙箱执行器并返回跨语言标准战报
         """
         endpoint = cls.task_to_endpoint(task)
         task_id = str(
@@ -73,3 +73,18 @@ class ResearchTaskAdapter:
             base_url=base_url,
         )
         return cls.result_to_dict(execution_result, task_id=task_id)
+
+    @classmethod
+    def execute_batch(
+        cls,
+        tasks: List[Dict[str, Any]],
+        executor: AdaptiveSandboxExecutor,
+        base_url: Optional[str] = None,
+    ) -> List[Dict[str, Any]]:
+        """
+        承接跨语言批量任务清单，以热态单进程环境驱动沙箱探测并返回标准战报列表
+        """
+        return [
+            cls.execute_task(task=task, executor=executor, base_url=base_url)
+            for task in tasks
+        ]

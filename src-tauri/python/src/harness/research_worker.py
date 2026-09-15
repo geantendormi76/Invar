@@ -15,7 +15,9 @@ def run_worker(
 ) -> int:
     """
     Invar 跨语言研究工作者主进程监听器 (Research Worker Process Runner)
-    从标准输入读取 ResearchTask JSON，调度研究沙箱，向标准输出回传 ResearchResult JSON
+    支持多态管道调度：
+    - 输入单个任务 JSON 对象，输出单个战报 JSON 对象
+    - 输入任务列表 JSON 数组，输出批量战报 JSON 数组
     """
     in_stream = stdin or sys.stdin
     out_stream = stdout or sys.stdout
@@ -31,8 +33,8 @@ def run_worker(
 
     try:
         task_payload = json.loads(raw_input)
-        if not isinstance(task_payload, dict):
-            raise ValueError("Task payload must be a JSON object")
+        if not isinstance(task_payload, (dict, list)):
+            raise ValueError("Task payload must be a JSON object or array")
     except Exception as exc:
         error_resp = {"error": f"Invalid JSON input: {str(exc)}"}
         out_stream.write(json.dumps(error_resp, ensure_ascii=False) + "\n")
@@ -40,12 +42,21 @@ def run_worker(
         return 1
 
     try:
-        result_dict = ResearchTaskAdapter.execute_task(
-            task=task_payload,
-            executor=active_executor,
-            base_url=base_url,
-        )
-        out_stream.write(json.dumps(result_dict, ensure_ascii=False) + "\n")
+        if isinstance(task_payload, list):
+            results = ResearchTaskAdapter.execute_batch(
+                tasks=task_payload,
+                executor=active_executor,
+                base_url=base_url,
+            )
+            out_stream.write(json.dumps(results, ensure_ascii=False) + "\n")
+        else:
+            result_dict = ResearchTaskAdapter.execute_task(
+                task=task_payload,
+                executor=active_executor,
+                base_url=base_url,
+            )
+            out_stream.write(json.dumps(result_dict, ensure_ascii=False) + "\n")
+
         out_stream.flush()
         return 0
     except Exception as exc:

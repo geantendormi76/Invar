@@ -1,5 +1,5 @@
 use std::io::Write;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
 use serde::{Deserialize, Serialize};
 
@@ -27,8 +27,23 @@ pub struct ResearchResult {
     pub evidence_history_count: u32,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct AuditReport {
+    pub total_tasks: usize,
+    pub completed_tasks: usize,
+    pub inconclusive_tasks: usize,
+    pub failed_tasks: usize,
+    pub vulnerable_tasks: usize,
+    pub total_attempts: u32,
+    pub results: Vec<ResearchResult>,
+}
+
 pub trait ResearchExecutor {
     fn execute(&self, task: &ResearchTask) -> ResearchResult;
+
+    fn execute_batch(&self, tasks: &[ResearchTask]) -> Vec<ResearchResult> {
+        tasks.iter().map(|task| self.execute(task)).collect()
+    }
 }
 
 pub struct ResearchOrchestrator<E: ResearchExecutor> {
@@ -42,6 +57,139 @@ impl<E: ResearchExecutor> ResearchOrchestrator<E> {
 
     pub fn run(&self, task: &ResearchTask) -> ResearchResult {
         self.executor.execute(task)
+    }
+
+    pub fn run_all(&self, tasks: &[ResearchTask]) -> Vec<ResearchResult> {
+        self.executor.execute_batch(tasks)
+    }
+
+    pub fn audit(&self, tasks: &[ResearchTask]) -> AuditReport {
+        let results = self.run_all(tasks);
+        let total_tasks = results.len();
+        let mut completed_tasks = 0;
+        let mut inconclusive_tasks = 0;
+        let mut failed_tasks = 0;
+        let mut vulnerable_tasks = 0;
+        let mut total_attempts = 0;
+
+        for r in &results {
+            total_attempts += r.attempts;
+            match r.status.as_str() {
+                "completed" => completed_tasks += 1,
+                "inconclusive" => inconclusive_tasks += 1,
+                _ => failed_tasks += 1,
+            }
+
+            if let Some(ref d) = r.decision {
+                if d.status == "vulnerable" {
+                    vulnerable_tasks += 1;
+                }
+            }
+        }
+
+        AuditReport {
+            total_tasks,
+            completed_tasks,
+            inconclusive_tasks,
+            failed_tasks,
+            vulnerable_tasks,
+            total_attempts,
+            results,
+        }
+    }
+}
+
+#[derive(Serialize)]
+struct AstCodeRequest<'a> {
+    code: &'a str,
+}
+
+#[derive(Serialize)]
+struct AstPathRequest<'a> {
+    target_path: &'a str,
+}
+
+#[derive(Debug, Clone)]
+pub struct ProcessAstExtractor {
+    pub program: String,
+    pub args: Vec<String>,
+    pub working_dir: Option<PathBuf>,
+    pub pythonpath: Option<String>,
+}
+
+impl ProcessAstExtractor {
+    pub fn new(
+        program: String,
+        args: Vec<String>,
+        working_dir: Option<PathBuf>,
+        pythonpath: Option<String>,
+    ) -> Self {
+        Self {
+            program,
+            args,
+            working_dir,
+            pythonpath,
+        }
+    }
+
+    pub fn extract_from_code(&self, code: &str) -> Vec<ResearchTask> {
+        let req = AstCodeRequest { code };
+        match serde_json::to_string(&req) {
+            Ok(json) => self.invoke_worker(&json),
+            Err(_) => Vec::new(),
+        }
+    }
+
+    pub fn extract_from_path(&self, target_path: &Path) -> Vec<ResearchTask> {
+        let path_str = target_path.to_string_lossy();
+        let req = AstPathRequest {
+            target_path: &path_str,
+        };
+        match serde_json::to_string(&req) {
+            Ok(json) => self.invoke_worker(&json),
+            Err(_) => Vec::new(),
+        }
+    }
+
+    fn invoke_worker(&self, input_json: &str) -> Vec<ResearchTask> {
+        let mut cmd = Command::new(&self.program);
+        cmd.args(&self.args)
+            .stdin(Stdio::piped())
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped());
+
+        if let Some(ref dir) = self.working_dir {
+            cmd.current_dir(dir);
+        }
+
+        if let Some(ref py_path) = self.pythonpath {
+            cmd.env("PYTHONPATH", py_path);
+        }
+
+        let mut child = match cmd.spawn() {
+            Ok(c) => c,
+            Err(_) => return Vec::new(),
+        };
+
+        if let Some(mut stdin) = child.stdin.take() {
+            let _ = stdin.write_all(input_json.as_bytes());
+        }
+
+        let output = match child.wait_with_output() {
+            Ok(o) => o,
+            Err(_) => return Vec::new(),
+        };
+
+        let stdout_str = String::from_utf8_lossy(&output.stdout);
+        let trimmed = stdout_str.trim();
+
+        if !trimmed.is_empty() {
+            if let Ok(tasks) = serde_json::from_str::<Vec<ResearchTask>>(trimmed) {
+                return tasks;
+            }
+        }
+
+        Vec::new()
     }
 }
 
@@ -176,6 +324,135 @@ impl ResearchExecutor for ProcessResearchExecutor {
             }),
             evidence_history_count: 0,
         }
+    }
+
+    fn execute_batch(&self, tasks: &[ResearchTask]) -> Vec<ResearchResult> {
+        if tasks.is_empty() {
+            return Vec::new();
+        }
+
+        let tasks_json = match serde_json::to_string(tasks) {
+            Ok(json) => json,
+            Err(err) => {
+                return tasks
+                    .iter()
+                    .map(|task| ResearchResult {
+                        task_id: task.task_id.clone(),
+                        status: "serialization_error".to_string(),
+                        attempts: 0,
+                        decision: Some(ResearchDecision {
+                            status: "failed".to_string(),
+                            rationale: format!("Failed to serialize task batch: {err}"),
+                        }),
+                        evidence_history_count: 0,
+                    })
+                    .collect();
+            }
+        };
+
+        let mut cmd = Command::new(&self.program);
+        cmd.args(&self.args)
+            .stdin(Stdio::piped())
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped());
+
+        if let Some(ref dir) = self.working_dir {
+            cmd.current_dir(dir);
+        }
+
+        if let Some(ref py_path) = self.pythonpath {
+            cmd.env("PYTHONPATH", py_path);
+        }
+
+        let mut child = match cmd.spawn() {
+            Ok(child) => child,
+            Err(err) => {
+                return tasks
+                    .iter()
+                    .map(|task| ResearchResult {
+                        task_id: task.task_id.clone(),
+                        status: "spawn_error".to_string(),
+                        attempts: 0,
+                        decision: Some(ResearchDecision {
+                            status: "failed".to_string(),
+                            rationale: format!("Failed to spawn child process: {err}"),
+                        }),
+                        evidence_history_count: 0,
+                    })
+                    .collect();
+            }
+        };
+
+        if let Some(mut stdin) = child.stdin.take() {
+            if let Err(err) = stdin.write_all(tasks_json.as_bytes()) {
+                return tasks
+                    .iter()
+                    .map(|task| ResearchResult {
+                        task_id: task.task_id.clone(),
+                        status: "stdin_error".to_string(),
+                        attempts: 0,
+                        decision: Some(ResearchDecision {
+                            status: "failed".to_string(),
+                            rationale: format!("Failed to write batch to stdin: {err}"),
+                        }),
+                        evidence_history_count: 0,
+                    })
+                    .collect();
+            }
+        }
+
+        let output = match child.wait_with_output() {
+            Ok(output) => output,
+            Err(err) => {
+                return tasks
+                    .iter()
+                    .map(|task| ResearchResult {
+                        task_id: task.task_id.clone(),
+                        status: "io_error".to_string(),
+                        attempts: 0,
+                        decision: Some(ResearchDecision {
+                            status: "failed".to_string(),
+                            rationale: format!("Failed to wait for child process: {err}"),
+                        }),
+                        evidence_history_count: 0,
+                    })
+                    .collect();
+            }
+        };
+
+        let stdout_str = String::from_utf8_lossy(&output.stdout);
+        let trimmed = stdout_str.trim();
+
+        if !trimmed.is_empty() {
+            if let Ok(results) = serde_json::from_str::<Vec<ResearchResult>>(trimmed) {
+                if results.len() == tasks.len() {
+                    return results;
+                }
+            }
+        }
+
+        let stderr_str = String::from_utf8_lossy(&output.stderr);
+        let rationale = if !stderr_str.trim().is_empty() {
+            format!("Batch process failed with stderr: {}", stderr_str.trim())
+        } else if !trimmed.is_empty() {
+            format!("Failed to parse batch output: {trimmed}")
+        } else {
+            format!("Batch process exited with status code: {:?}", output.status.code())
+        };
+
+        tasks
+            .iter()
+            .map(|task| ResearchResult {
+                task_id: task.task_id.clone(),
+                status: "process_failed".to_string(),
+                attempts: 0,
+                decision: Some(ResearchDecision {
+                    status: "failed".to_string(),
+                    rationale: rationale.clone(),
+                }),
+                evidence_history_count: 0,
+            })
+            .collect()
     }
 }
 

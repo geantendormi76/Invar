@@ -95,3 +95,55 @@ class ResearchTaskAdapterTests(unittest.TestCase):
         self.assertEqual(result_dict["attempts"], 1)
         self.assertIsNone(result_dict["decision"])
         self.assertEqual(result_dict["evidence_history_count"], 1)
+
+    def test_execute_batch_processes_multiple_tasks_and_returns_list_of_results(
+        self,
+    ) -> None:
+        from harness.research_adapter import ResearchTaskAdapter
+
+        tasks = [
+            {
+                "task_id": "GET:/api/users",
+                "method": "GET",
+                "path": "/api/users",
+            },
+            {
+                "task_id": "POST:/api/orders",
+                "method": "POST",
+                "path": "/api/orders",
+            },
+        ]
+
+        def fake_probe(endpoint, base_url=None):
+            case = ResearchCase(
+                case_id=f"{endpoint.method}:{endpoint.path}",
+                endpoint=endpoint,
+            )
+            case.record_attempt(
+                payload={},
+                status_code=200,
+                response_preview='{"ok":true}',
+            )
+            case.set_decision(
+                ResearchDecision(status="confirmed", rationale="probe ok")
+            )
+            return ResearchExecutionResult(
+                evidence=Mock(),
+                research_case=case,
+                evidence_history=[Mock()],
+            )
+
+        mock_executor = Mock()
+        mock_executor.probe_endpoint_with_research.side_effect = fake_probe
+
+        results = ResearchTaskAdapter.execute_batch(
+            tasks=tasks,
+            executor=mock_executor,
+        )
+
+        self.assertIsInstance(results, list)
+        self.assertEqual(len(results), 2)
+        self.assertEqual(results[0]["task_id"], "GET:/api/users")
+        self.assertEqual(results[0]["status"], "completed")
+        self.assertEqual(results[1]["task_id"], "POST:/api/orders")
+        self.assertEqual(results[1]["status"], "completed")

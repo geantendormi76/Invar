@@ -1,13 +1,15 @@
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import Dict, List, Optional
 
+from agent.hypothesis_engine import HypothesisEngine
 from harness.config import InvarConfig
 from harness.evidence import EvidenceRecord, HTTPRequestLog, HTTPResponseLog
 from harness.feedback import FeedbackInterpreter
+from harness.invariant_evaluator import InvariantEvaluator
 from harness.models import EndpointIR
 from harness.mutation_policy import MutationPolicy
 from harness.research_evidence import ProbeAttemptEvidenceMapper
-from harness.research_models import ResearchCase, ResearchExecutionResult
+from harness.research_models import ResearchCase, ResearchExecutionResult, SecurityInvariant
 from harness.transport import HttpTransport
 
 
@@ -48,11 +50,50 @@ class AdaptiveSandboxExecutor:
         )
 
     def _create_research_case(self, endpoint: EndpointIR) -> ResearchCase:
-        return ResearchCase(
+        case = ResearchCase(
             case_id=f"{endpoint.method.upper()}:{endpoint.path}",
             endpoint=endpoint,
             metadata={"engine": "AdaptiveSandboxExecutor"},
         )
+
+        # 1. 自动注入破坏性操作确认不变量
+        is_destructive = (
+            endpoint.method.upper() == "DELETE"
+            or "destructive" in endpoint.tags
+            or any(
+                k in endpoint.path.lower()
+                for k in ["delete", "batch", "drop", "purge", "clear", "remove"]
+            )
+        )
+        if is_destructive:
+            case.add_invariant(
+                SecurityInvariant(
+                    invariant_type="destructive_confirmation",
+                    statement="Destructive actions must require explicit confirmation",
+                )
+            )
+
+        # 2. 自动注入敏感管理路由认证边界不变量
+        is_sensitive = (
+            "sensitive-route" in endpoint.tags
+            or "admin" in endpoint.tags
+            or any(
+                k in endpoint.path.lower()
+                for k in ["admin", "private", "manage"]
+            )
+        )
+        if is_sensitive:
+            case.add_invariant(
+                SecurityInvariant(
+                    invariant_type="auth_boundary",
+                    statement="Sensitive administration routes must enforce authentication",
+                )
+            )
+
+        # 3. 认知层自主推演：自动注入先验科研假设清单 (PROPOSED)
+        HypothesisEngine.attach_to_case(case)
+
+        return case
 
     def _probe_endpoint_with_research_case(
         self,
@@ -171,6 +212,32 @@ class AdaptiveSandboxExecutor:
                 evidence_history=[],
             )
 
+        # 闭环收尾阶段：结合最后探测事实，由 InvariantEvaluator 综合评估安全不变量
+        last_status_code = last_response.status_code if last_response is not None else 0
+
+        # 提取单条不变量事实
+        evaluations = [
+            InvariantEvaluator.evaluate(
+                inv,
+                research_case.endpoint,
+                last_status_code,
+                payload,
+                headers,
+            )
+            for inv in research_case.invariants
+        ]
+
+        # 驱动假设状态机流转：PROPOSED -> VERIFIED / REFUTED
+        HypothesisEngine.resolve_hypotheses(research_case, evaluations)
+
+        # 合成全局综合决断
+        decision = InvariantEvaluator.evaluate_case(
+            case=research_case,
+            status_code=last_status_code,
+            payload=payload,
+            headers=headers,
+        )
+
         evidence_history = ProbeAttemptEvidenceMapper.to_evidence_records(
             research_case=research_case,
             url=url,
@@ -183,6 +250,12 @@ class AdaptiveSandboxExecutor:
             )
 
         final_evidence = evidence_history[-1]
+
+        # 若判定不变量被击穿，升级证据状态
+        if decision is not None and decision.status == "vulnerable":
+            final_evidence.is_anomaly = True
+            final_evidence.finding_type = "VULNERABILITY_FOUND"
+            final_evidence.notes = f"{final_evidence.notes} | [VULNERABILITY] {decision.rationale}"
 
         return ResearchExecutionResult(
             evidence=final_evidence,

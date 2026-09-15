@@ -15,6 +15,8 @@ class Hypothesis:
     hypothesis_id: str
     statement: str
     rationale: str = ""
+    status: str = "PROPOSED"
+    evidence_notes: str = ""
 
 
 @dataclass(frozen=True)
@@ -96,6 +98,8 @@ class ResearchCase:
                     "hypothesis_id": item.hypothesis_id,
                     "statement": item.statement,
                     "rationale": item.rationale,
+                    "status": item.status,
+                    "evidence_notes": item.evidence_notes,
                 }
                 for item in self.hypotheses
             ],
