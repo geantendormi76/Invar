@@ -1,103 +1,156 @@
-# 🛡️ Invar 项目跨会话交接档案 (HANDOFF SPECIFICATION v2.0)
+# Invar 项目会话交接文档（HANDOFF）
 
-> **归档时间**: 2026-09-15  
-> **项目物理主权根目录**: `C:\dev\Invar`  
-> **核心开发哲学**: 钱学森系统工程哲学 + 工业级 Rust/Python 双引擎 Monorepo 规范 + 彭峙酿（Zhiniang Peng）Offbyone 2026 闭环 Agent 理论  
-> **面向对象**: 接管本项目的全新 AI 智能体 / 核心架构师
+版本：2026-09-15 跨语言 IPC 贯通收口版  
+项目根目录：`C:\dev\Invar`
 
 ---
 
-## 1. 核心背景与我们在做什么
+## 0. 给新会话 AI 的最高优先级说明
 
-### 1.1 业务使命
-针对自研 Web API（如 Go/Gin、Vue/React 前端），构建新一代自动化逆向、契约推导与逻辑漏洞挖掘系统。
-通过前端打包混淆 JS 代码，全自动提炼路由与真实参数字典，并模拟真实黑客通过运行环境报错（如 Go validator 拦截）实现**自主自省变异与闭环击穿**。
+这是一个正在进行中的 **Invar Rust + Python 双引擎工业级研究系统**。
 
-### 1.2 理论核心来源：彭峙酿《A Year of Hacking with LLMs》
-我们彻底放弃了 2023 年“用微调模型做静态文本模式匹配”的死胡同，对齐其 2025–2026 年验证成功的实战范式：
-1. **Deterministic Harness（确定性预处理脚手架）**: 用 Tree-sitter C 扩展直推提取 AST，不用大模型生啃海量代码，0 Token 消耗完成数据降维。
-2. **Security Invariant Reasoning（安全不变量威胁建模）**: 关注权限边界破坏、破坏性动作（DELETE）、敏感路由加权，而非机械匹配已知的 CVE 文本。
-3. **In-Silico Verification & Feedback Loop（物理环境执行自愈闭环）**: 发包 -> 截获 400 校验报错或堆栈 -> 解析真实结构 -> 变异 Payload -> 再次发包直至 200/404 击穿。
+当前架构定位已完全实证打通：
 
----
+```text
+Rust = 系统级总控 / 编排 / 生命周期 / 进程管理 / 管道 IPC / 资源管理 / 并发边界 / 强类型契约
+Python = 专业研究算法 / AI / ML / AST 解析 / 自适应报错变异 / 快速安全实验
+```
 
-## 2. 1:1 全量资产迁移与补齐对账总表
-
-原工程代码位于 `D:\核心开发内容\开发积累\3_核心经验算法\0_开发项目\C_逆向渗透\tools`。经白盒对账，全量代码去向与状态如下：
-
-| 原 tools 物理文件 | 对应功能定位 | 迁移至 Invar 的物理路径 | 状态 |
-| :--- | :--- | :--- | :--- |
-| `js_ast/core/models.py` | API 契约中间表示 | `src-tauri/python/src/harness/models.py` | ✅ 已完成 (含多态解包容错) |
-| `js_ast/core/evidence.py` | 快照级证据链 | `src-tauri/python/src/harness/evidence.py` | ✅ 已完成 (快照发包日志) |
-| `js_ast/core/extractor.py` | AST 接口提取引擎 | `src-tauri/python/src/harness/extractor.py` | ✅ 已完成 (多语法下潜) |
-| `js_ast/core/dataflow_analyzer.py` | AST 参数 Key 剥离 | `src-tauri/python/src/harness/extractor.py` | ✅ 已完成 (融合吸收) |
-| `js_ast/analysis/sota_ast_analyzer.py` | 参数签名提取 | `src-tauri/python/src/harness/extractor.py` | ✅ 已完成 (统一标准化) |
-| `js_ast/core/exporter.py` | JSON 导入导出 | `src-tauri/python/src/harness/exporter.py` | ✅ 已完成 (支持列表与复合战报) |
-| `js_ast/core/config.py` | 运行环境配置 | `src-tauri/python/src/harness/config.py` | ✅ 已完成 (自适应跨平台) |
-| `js_ast/core/classifier.py` | 关键词风险打标 | `src-tauri/python/src/agent/risk_engine.py` | ✅ 已完成 (加权归一化) |
-| `js_ast/core/risk_engine.py` | 0.0~10.0 多维打分 | `src-tauri/python/src/agent/risk_engine.py` | ✅ 已完成 (四级风险标签) |
-| `js_ast/core/sandbox_executor.py` | 沙箱探针执行器 | `src-tauri/python/src/harness/sandbox_executor.py` | ✅ 已完成 (升级第二代自适应闭环) |
-| `js_ast/runtime/sota_payload_executor*.py`| 契约并发探针 | `src-tauri/python/src/harness/sandbox_executor.py` | ✅ 已完成 (多线程自愈闭环) |
-| `js_ast/core/scanner.py` | 全链路扫描流水线 | `scripts/pipeline/scan_pipeline.py` | ✅ 已完成 (全链路 CLI) |
-| `js_ast/core/contract_checker.py` | 契约合规检测器 | `scripts/audit/contract_checker.py` | ✅ 已完成 (松散与二次确认审计) |
-| `project_inventory.py` | 资产 SHA256 盘点 | `scripts/audit/project_inventory.py` | ✅ 已完成 (17 模块全量受控) |
-| `js_ast/builders/build_targets.py` | 扫描器目标构建 | `scripts/pipeline/build_targets.py` | ✅ **已补齐** (生成 Nuclei/FFUF 清单) |
-| `js_ast/experiments/fetch_missing_chunk.py` | 缺失 Chunk 下载 | `scripts/pipeline/fetch_chunk.py` | ✅ **已补齐** (带 127.0.0.1:7897 代理) |
-| `js_ast/experiments/exploit_jwt_and_privesc.py` | JWT 逆向与爆破 | `src-tauri/python/src/agent/jwt_auditor.py` | ⏳ **待迁移补齐 (下会话第一步)** |
-| `js_ast/experiments/bypass_rate_limit_bruteforce.py` | IP 伪造抗体 (429 绕过) | 并入 `src-tauri/python/src/harness/sandbox_executor.py` | ⏳ **待迁移补齐 (下会话第二步)** |
-| `js_ast/analysis/idor_extractor_engine.py` | IDOR 平行越权遍历 | `src-tauri/python/src/agent/idor_engine.py` | ⏳ **待迁移补齐 (下会话第三步)** |
-| `js_ast/experiments/exploit_4cards.py` (空间2) | Base64 会话载荷注入 | 并入 `src-tauri/python/src/agent/mutator.py` | ⏳ **待迁移补齐 (下会话第四步)** |
+核心工程原则：
+- 零臆造、零特判、纯泛化
+- 目录结构是一级工程契约，严格维持 `src`（生产/局部单元测试）与 `tests`（集成/黑盒契约测试）的物理隔离
+- 强类型优先，契约收敛优先，杜绝将 Python 动态字典粗暴灌入 Rust
+- 严密遵循 TDD：红灯（确认根因）→ 最小合理生产修改 → 绿灯 → 双向全量回归
+- Windows PowerShell 原样交付，禁止使用裸 `python` 或 `pip`，一律走 `uv` 环境
 
 ---
 
-## 3. 当前精确停驻节点 (Checkpoint)
+## 1. 当前工程全景状态
 
-- **物理位置**: `C:\dev\Invar`
-- **当前状态**: 
-  1. 核心大一统 Monorepo 框架已建立，`uv sync` 锁死，Rust/Python 结构健全；
-  2. 核心脚手架（AST 提取、模型、导出器、自愈沙箱执行器、威胁评估）全部经过 TDD 断言测试（100% 绿灯通过）；
-  3. 查漏补缺任务已完成第一项（`build_targets.py`）和第二项（`fetch_chunk.py`）；
-  4. 综合流水线 `scan_pipeline.py`、合规审计 `contract_checker.py` 与资产盘点 `project_inventory.py` 运行顺畅。
+### 1.1 双引擎总体状态
+```text
+Rust 端：
+  ├── Library Crate (invar_core)             ✅
+  ├── ResearchTask (带 case_id 别名)          ✅
+  ├── ResearchDecision (Option 包装)          ✅
+  ├── ResearchResult (强类型战报)             ✅
+  ├── ResearchExecutor trait (抽象特征)       ✅
+  ├── ResearchOrchestrator (系统总控)         ✅
+  ├── ProcessResearchExecutor (匿名管道 IPC)   ✅
+  └── 单元 & 集成测试 (8 passed, 0 warnings)  ✅
+
+Python 端：
+  ├── HttpTransport (确定性发包)              ✅
+  ├── FeedbackInterpreter (Go 报错模式识别)    ✅
+  ├── MutationPolicy (自适应载荷变异)          ✅
+  ├── ResearchCase & ProbeAttempt (单调编号)  ✅
+  ├── ResearchExecutionResult                 ✅
+  ├── ProbeAttemptEvidenceMapper (证据桥接)   ✅
+  ├── AdaptiveSandboxExecutor (沙箱闭环引擎)  ✅
+  ├── ResearchTaskAdapter (跨语言契约适配器)   ✅
+  ├── ResearchWorker (标准流进程监听器)        ✅
+  └── 全量回归测试集 (12 passed, 0 failed)    ✅
+```
+
+### 1.2 跨语言 IPC 通信架构已打通
+```text
+  ┌─────────────────────────┐
+  │  Rust Orchestrator      │
+  │  (ProcessResearchExec)  │
+  └──────────┬──────────────┘
+             │ 1. 序列化 ResearchTask JSON 灌入 stdin 管道
+             ▼
+  ┌─────────────────────────┐
+  │  OS Anonymous Pipe      │
+  └──────────┬──────────────┘
+             │ 2. 操作系统内核环形缓冲区无损传输
+             ▼
+  ┌─────────────────────────┐
+  │  Python ResearchWorker  │
+  │  (harness.research_worker)
+  └──────────┬──────────────┘
+             │ 3. ResearchTaskAdapter 转换为 EndpointIR
+             │ 4. AdaptiveSandboxExecutor 驱动自愈变异闭环
+             │ 5. 结果提炼收敛为 ResearchResult JSON
+             ▼
+  ┌─────────────────────────┐
+  │  OS Anonymous Pipe      │
+  └──────────┬──────────────┘
+             │ 6. stdout 回传管道
+             ▼
+  ┌─────────────────────────┐
+  │  Rust 反序列化 ResearchResult
+  │  返回给调度总控          │
+  └─────────────────────────┘
+```
 
 ---
 
-## 4. 下一个会话启动后的立即可执行计划
+## 2. 跨语言对账结论与字段契约标准
 
-新会话打开后，请立即按以下顺序收尾剩余的 4 项实战算子移植：
-
-### 任务 1：迁移落盘 `src-tauri/python/src/agent/jwt_auditor.py`
-- 将原 `exploit_jwt_and_privesc.py` 的算法抽象为规范的类：
-  - JWT Header / Payload 解码（Base64 URL Safe）；
-  - 提取角色属性（role, user_id, email）；
-  - 常见弱口令 HMAC-SHA256 对称密钥本地碰撞爆破器；
-  - 普通用户 Token 垂直越权管理员接口探测矩阵。
-
-### 任务 2：为 `AdaptiveSandboxExecutor` 注入 429 绕过抗体
-- 将 `bypass_rate_limit_bruteforce.py` 中的 IP 伪造算法提炼为注入选项：
-  - 发包时动态生成随机公网 IP 并注入 `X-Forwarded-For`、`X-Real-IP`、`Client-IP`；
-  - 遭遇 429 Too Many Requests 时自动轮换 IP 再次重发。
-
-### 任务 3：迁移落盘 `src-tauri/python/src/agent/idor_engine.py`
-- 将原 `idor_extractor_engine.py` 规范化为 IDOR 遍历器：
-  - 读取 AST 提炼出的带 `${...}` 或 `dynamic: True` 接口；
-  - 遍历测试典型业务 ID（如真实订单号列表、递增 ID）；
-  - 依据状态码与返回数据长度沉淀 IDOR 漏洞凭证。
+| Rust 契约字段 | 类型 | Python 对应事实 | 是否跨语言 | 架构理由 |
+| :--- | :--- | :--- | :--- | :--- |
+| `task_id` | `String` | `case_id` | **是** | 主键标识。Rust 配置 `#[serde(alias = "case_id")]` 实现双向兼容 |
+| `method` | `String` | `endpoint.method` | **是** | HTTP 请求动作（GET/POST/PUT/DELETE 等） |
+| `path` | `String` | `endpoint.path` | **是** | 目标 API 路径 |
+| `status` | `String` | 状态推导结果 | **是** | `"completed"` / `"inconclusive"` / `"process_failed"` |
+| `attempts` | `u32` | `len(case.attempts)` | **是** | 探测轮次统计，避免跨语言传递全部庞大的动态报文 |
+| `decision` | `Option<Decision>` | `case.decision` | **是** | 最终决断上下文（status 与 rationale） |
+| `evidence_history_count` | `u32` | `len(evidence_history)` | **是** | 证据链快照计数，用以审计核验 |
 
 ---
 
-## 5. 核心避坑与绝对红线数据库 (Pitfalls DB)
+## 3. 测试套件与验证命令
 
-新会话的 AI **必须严格遵守以下法则，绝对严禁触犯**：
+### 3.1 Rust 测试集（8 passed）
+包含：
+- `orchestrator::tests::research_orchestrator_supports_replaceable_executor`
+- `tests/orchestrator_contract_test.rs`（6 个契约与别名测试）
+- `tests/process_executor_contract_test.rs`（1 个跨语言真实管道测试）
 
-1. ❌ **严禁在 PowerShell 中使用 `python -c "..."` 拼接含复杂双引号或 JSON 的长代码**：
-   - PowerShell 的 Quote Stripping 会导致引号剥离破损，报 `SyntaxError: unterminated string literal`。
-   - **铁律**: 一律通过 PowerShell `@' ... '@` 原样单引号字符串落盘到 `tmp/xxx.py`，再使用 `uv run` 执行！
-2. ❌ **严禁调用系统 `pip` 或裸 `python`**：
-   - 本地无系统级 Python，依赖全部由 `src-tauri/python/pyproject.toml` 约束。
-   - **铁律**: 执行任何脚本统一使用：`uv run --project "C:\dev\Invar\src-tauri\python" python <脚本路径>`。
-3. ❌ **严禁引入硬编码 Linux 绝对路径**：
-   - 彻底废除 `/home/zhz/ST/`，统一使用 `Path(__file__).resolve().parents[...]` 或 `harness.config.InvarConfig` 动态寻路。
-4. ❌ **严禁在命令行开头带有 `#` 注释**：
-   - 防止 PowerShell 将整段复合执行流截断。
-5. ❌ **严禁丢失数据契约的防御性容错**：
-   - 任何读取 JSON 的函数（如 `EndpointExporter`），必须同时兼容 `dict` 外壳与 `list` 裸数组，严禁假设输入单一结构。
+验证命令：
+```powershell
+cargo test --manifest-path 'C:\dev\Invar\src-tauri\crates\Cargo.toml'
+```
+
+### 3.2 Python 测试集（12 passed）
+包含：
+- `test_research_evidence_bridge.py`
+- `test_research_evidence_history.py`
+- `test_research_execution_result.py`
+- `test_research_loop_integration.py`
+- `test_sandbox_base_url_compatibility.py`
+- `test_scan_pipeline_integration.py`
+- `test_research_task_adapter.py`
+- `test_research_worker.py`
+
+验证命令：
+```powershell
+$env:PYTHONPATH="C:\dev\Invar\src-tauri\python\src"; uv run --project "C:\dev\Invar\src-tauri\python" --python 3.11 python -m unittest `
+    "C:\dev\Invar\src-tauri\python\tests\test_research_evidence_bridge.py" `
+    "C:\dev\Invar\src-tauri\python\tests\test_research_evidence_history.py" `
+    "C:\dev\Invar\src-tauri\python\tests\test_research_execution_result.py" `
+    "C:\dev\Invar\src-tauri\python\tests\test_research_loop_integration.py" `
+    "C:\dev\Invar\src-tauri\python\tests\test_sandbox_base_url_compatibility.py" `
+    "C:\dev\Invar\src-tauri\python\tests\test_scan_pipeline_integration.py" `
+    "C:\dev\Invar\src-tauri\python\tests\test_research_task_adapter.py" `
+    "C:\dev\Invar\src-tauri\python\tests\test_research_worker.py"
+```
+
+---
+
+## 4. 踩坑与避坑铁律（新增沉淀）
+
+1. **Windows 跨进程命令行长度与转义陷阱**：严禁尝试用命令行参数（如 `--task '{"..."}'`）传递复杂数据，必须坚持使用匿名管道（`Stdio::piped()`）进行标准流传递。
+2. **未捕获异常死锁风险**：Python Worker 必须包裹全局异常捕获，即使输入完全畸形也必须向 `stdout` 输出结构化错误并正常退出，严禁抛出原生堆栈崩溃导致 Rust 读端永远挂起。
+3. **集成测试命名与路径契约**：Rust 集成测试必须放在 `crates/tests/` 目录下；如果需要引用 crate 导出的结构体，必须确保在 `src/lib.rs` 中显式公开导出（`pub use`）。
+4. **无意义警告零容忍**：引入新结构体时若在测试中产生 `unused import` 警告，必须及时清理，保持编译器净空。
+
+---
+
+## 5. 下一步严格演进路线
+
+下一阶段核心任务：
+1. **多任务批量编排与并发控制**：在 Rust `ResearchOrchestrator` 中引入 `run_all(&[ResearchTask]) -> Vec<ResearchResult>` 批量执行接口。
+2. **子进程生命周期与常驻优化（Daemon/Streaming 评估）**：评估当前单次任务启动与持久子进程（Long-running Worker）的性能开销，设计更平滑的任务流通道。
+3. **AST 全链路贯通（Pipeline Migration）**：将前端 AST 解析产出的多个 `EndpointIR`，交由 Rust 总控批量生成 `ResearchTask` 队列并统一调度回 Python 沙箱执行。

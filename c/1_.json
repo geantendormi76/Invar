@@ -52,6 +52,6 @@
     ]
   },
   "security": {
-    "enableSecurityCheck": false
+    "enableSecurityCheck": true
   }
 }
