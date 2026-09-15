@@ -1,37 +1,23 @@
 # Invar 新会话启动词：AI 可复现工程连续工作协议
 
-你现在接管的是 Windows 项目 `C:\dev\Invar`。这是一个已经进行过多轮源码考古、1:1 行为迁移、TDD 重构和 Rust/Python 双引擎架构演进的长期工程。你不是从零开始，也不能把当前工作当成一次性的代码生成任务。
+你现在接管的是 Windows 项目 `C:\dev\Invar`。这是一个已经进行过多轮源码考古、TDD 重构、Rust/Python 双引擎架构演进，并已成功贯通“五层认知架构”与“单进程批量 IPC 管道”的工业级自动化安全研究系统。
+
+当前核心商业目标：**以实战漏洞挖掘变现为导向，主攻高价值逻辑漏洞（越权 BOLA/IDOR、未授权、破坏性操作），赚取漏洞赏金。**
 
 ## 一、先继承当前工程背景
 
-项目目标是构建一个可复现、可审计、可扩展的 AI 研究与软件系统工程骨架。当前重点是 Web API 逆向/契约推导/安全研究闭环，但这套技术要抽象为可迁移到其他 AI、Agent、模型、推理引擎、桌面应用、云端和 Linux 项目的通用工程方法。
-
 核心工程原则：
-
-```text
-不追求单个模块局部最优，而追求整个系统的协同最优。
-
-有依据才实现；
-有抽象才扩展；
-有测试才交付。
-
-零臆造
-零重复造轮子
-零无依据特判
-零魔法硬编码
-零无意义打补丁
-
-高内聚、低耦合、高鲁棒性、热拔插。
-```
-
-项目既有目录结构就是一级工程契约。创建或修改文件前，必须先判断文件类型、职责和生命周期，并放入已有正确目录。绝不把 integration test、临时实验、知识文档、数据或脚本随意塞进生产目录。
+1. **不追求局部零件最优，而追求整个系统的协同最优。**
+2. **有依据才实现；有抽象才扩展；有测试才交付；有证据才晋级。**
+3. 零臆造、零重复造轮子、零无依据特判、零魔法硬编码。
+4. 坚持高内聚、低耦合、高鲁棒性、热拔插。
+5. 目录结构即一级工程契约，严格维持 `src`（生产）与 `tests`（集成测试）的物理隔离。
 
 ## 二、必须保留当前交互习惯
 
 用户是编程初学者，优先使用中文解释；专业术语第一次出现时给出准确中文含义，代码中的英文名称保持原样。
 
-工作方式必须是：
-
+工作方式必须是（严格的 TDD 单步协作）：
 ```text
 一次只推进一个逻辑步骤
 → 读取真实代码/接口
@@ -47,443 +33,72 @@
 → 回归测试
 → 下一步
 ```
-
 没有看到用户的真实测试结果之前，不得假设成功，也不要连续跨越多个未验证步骤。
 
 每次需要修改或新增文件时，优先输出完整 PowerShell 写文件命令：
-
 ```powershell
 @'
 完整文件内容
 '@ | Set-Content -Encoding UTF8 'C:\dev\Invar\...'
 ```
-
 并把执行命令紧接在后面，减少用户手工输入。
 
 Windows 项目约束：
+- 禁止 Linux 绝对路径，禁止裸 `python`，禁止 `pip`。
+- Python 统一使用 `uv` 环境。
+- 命令行中不要出现以 `#` 开头的说明行。
 
-```text
-禁止 Linux 绝对路径
-禁止裸 python
-禁止 pip
-Python 使用 uv
-Rust 使用 cargo
-命令行中不要出现以 # 开头的说明行
-```
-
-Python 常用执行方式：
-
+Python 常用测试执行方式：
 ```powershell
-$env:PYTHONPATH="C:\dev\Invar\src-tauri\python\src"; uv run --project "C:\dev\Invar\src-tauri\python" --python 3.11 python "<test path>"
+$env:PYTHONPATH="C:\dev\Invar\src-tauri\python\src"; uv run --project "C:\dev\Invar\src-tauri\python" --python 3.11 python -m unittest "<test_file_path>"
 ```
-
-Rust 常用测试：
-
+Rust 常用测试执行方式：
 ```powershell
 cargo test --manifest-path 'C:\dev\Invar\src-tauri\crates\Cargo.toml'
 ```
 
-## 三、当前已经完成的工程状态
-
-### 1. Python 研究引擎
-
-已经建立并验证：
-
-```text
-harness.transport
-harness.feedback
-harness.mutation_policy
-harness.research_models
-harness.research_evidence
-harness.sandbox_executor
-```
-
-核心模型：
-
-```text
-SecurityInvariant
-Hypothesis
-ProbeAttempt
-ResearchDecision
-ResearchCase
-ResearchExecutionResult
-```
-
-当前真实 `ResearchCase`：
-
-```text
-case_id
-endpoint
-invariants
-hypotheses
-attempts
-decision
-metadata
-```
-
-当前真实 `ResearchExecutionResult`：
-
-```text
-evidence
-research_case
-evidence_history
-```
-
-`ProbeAttempt` 要保持连续编号：
-
-```text
-1, 2, 3, ...
-```
-
-否则必须失败。
-
-`decision` 在 Python 中是：
-
-```text
-Optional[ResearchDecision]
-```
-
-不要把 `None` 偷换成空字符串。
-
-### 2. Python Executor
-
-`AdaptiveSandboxExecutor` 已经完成第二代自适应研究闭环，内部依赖：
-
-```text
-InvarConfig
-HttpTransport
-FeedbackInterpreter
-MutationPolicy
-ResearchCase
-ProbeAttemptEvidenceMapper
-```
-
-主要边界：
-
-```text
-probe_endpoint_with_research(...)
-→ ResearchExecutionResult
-
-probe_endpoint(...)
-→ EvidenceRecord
-
-probe_all(...)
-→ List[EvidenceRecord]
-```
-
-`base_url` 可以显式覆盖默认 API base；否则使用配置中的 `target_api_base`。URL 拼接必须保持斜杠鲁棒性。
-
-### 3. Pipeline
-
-当前 `scripts/pipeline/scan_pipeline.py` 是 Python 侧完整流水线控制器，真实阶段为：
-
-```text
-AST extractor
-→ RiskEngine
-→ AdaptiveSandboxExecutor
-→ JSON report
-```
-
-它暂时是现有工作流控制边界，但长期目标不是永远让 Python 作为整个系统的总控。
-
-### 4. Rust
-
-Rust 现在开始承担长期系统级总控：
-
-```text
-Rust
-= 系统编排、生命周期、进程/IPC、资源、并发、稳定强类型契约
-
-Python
-= 专业研究算法、AI/ML、快速实验与研究生态
-```
-
-当前 Rust crate 结构：
-
-```text
-C:\dev\Invar\src-tauri\crates
-├── src
-│   ├── lib.rs
-│   ├── main.rs
-│   └── orchestrator.rs
-└── tests
-    └── orchestrator_contract_test.rs
-```
-
-`tests` 是 integration test 的正式目录，不要再把 `orchestrator_contract_test.rs` 放回 `src`。
-
-当前 Rust library 明确指定：
-
-```toml
-[package]
-name = "Invar-core"
-
-[lib]
-name = "invar_core"
-```
-
-不要为了消除 Rust lint 再改变 package identity，也不要用 `#[allow(non_snake_case)]` 掩盖结构问题。
-
-### 5. Rust 研究契约
-
-当前已经验证：
-
-```rust
-ResearchTask {
-    task_id: String,
-    method: String,
-    path: String,
-}
-```
-
-```rust
-ResearchDecision {
-    status: String,
-    rationale: String,
-}
-```
-
-```rust
-ResearchResult {
-    task_id: String,
-    status: String,
-    attempts: u32,
-    decision: Option<ResearchDecision>,
-    evidence_history_count: u32,
-}
-```
-
-```rust
-trait ResearchExecutor {
-    fn execute(&self, task: &ResearchTask) -> ResearchResult;
-}
-```
-
-```text
-ResearchOrchestrator<E: ResearchExecutor>
-```
-
-已经验证：
-
-```text
-可替换 Executor
-ResearchTask JSON round-trip
-ResearchResult JSON round-trip
-Optional decision
-decision context
-```
-
-最近一次 Rust 验收：
-
-```text
-library unit tests: 1 passed
-integration tests: 4 passed
-binary tests: 0
-doc tests: 0
-warnings: 0
-errors: 0
-```
-
-### 6. 最重要的当前未完成任务
-
-不要直接接 Python IPC，不要创建“大 Agent”。
-
-下一步必须严格进行：
-
-```text
-读取真实 EndpointIR
-→ 读取真实 ResearchCase.to_dict()
-→ 读取真实 ResearchExecutionResult
-→ Python/Rust 字段逐项对账
-→ 只选择真正需要跨语言的最小公共契约
-→ 写最小红灯测试
-→ 最小修改
-→ 绿灯
-→ 回归
-→ 再进入 subprocess / IPC
-```
-
-特别注意：
-
-```text
-ResearchCase
-≠
-ResearchExecutionResult
-≠
-EvidenceRecord
-```
-
-不能为了省事把 Python 内部所有 dataclass 原样搬到 Rust。
-
-## 四、必须继承的外部理论、资料和安全边界
-
-当前架构思想明确对齐 Zhiniang Peng 的《A Year of Hacking with LLMs》所强调的研究闭环方向，并吸收已有项目的安全研究方法。对外部资料要遵守：
-
-```text
-论文 / 官方文档 / 成熟开源项目 / 既有实现
-→ 优先复现与正确转译
-→ 再做工程化抽象
-```
-
-不要把外部理论、工程推论、假设和实验结果混为一谈。
-
-当前已经沉淀的核心思想：
-
-```text
-Deterministic Harness
-确定性预处理脚手架
-
-Security Invariant Reasoning
-安全不变量推理
-
-In-Silico Verification & Feedback Loop
-执行反馈与自适应研究闭环
-```
-
-核心研究流程：
-
-```text
-Extract
-→ Classify
-→ Select invariant
-→ Form hypothesis
-→ Observe
-→ Interpret feedback
-→ Mutate within policy
-→ Re-observe
-→ Record evidence
-→ Evaluate stop condition
-→ Promote only verified claims
-```
-
-Agent、Skill、Harness、Evidence、Knowledge 应保持职责分离：
-
-```text
-Agent
-= 规划、推理、工具选择、分支
-
-Skill
-= 工作流顺序、条件、停止条件、安全门禁
-
-Harness
-= 确定性工具
-
-Evidence
-= 逐轮证据
-
-Knowledge
-= 经验证后的事实/知识
-```
-
-安全研究历史资料中曾出现真实目标、Token、账户、密码字典、主动 exploit 等内容。绝不把这些作为可复用实现直接迁移。
-
-正确方法：
-
-```text
-历史攻击材料
-→ 提取算法思想
-→ 抽象 operator
-→ fixture / mock / localhost
-→ TDD
-```
-
-默认安全边界：
-
-```text
-真实凭据不进入 reusable module
-真实目标不写入默认配置
-研究 Skill 不携带真实攻击材料
-JWT 默认只做安全的结构检查/解析
-IDOR / rate-limit / exploit 类 operator 默认使用实验环境
-```
+## 三、当前已经完成的工程状态（55 项测试 100% 全绿）
+
+系统已完整实现彭峙酿（Zhiniang Peng）的五层认知架构：
+
+### 1. Python 专业研究引擎 (41 passed)
+- **Level 5 (Agent)**: `HypothesisEngine` 自主推演先验假说（`H-IDOR`, `H-AUTH`, `H-DESTRUCT`），驱动状态机（`PROPOSED` -> `VERIFIED`/`REFUTED`）。
+- **Level 4 (Skill)**: `InvariantEvaluator` 评估安全不变量，合成 `ResearchDecision`。
+- **Level 3 (Harness)**: `ast_worker` 提取语法树；`research_worker` 监听标准流；`AdaptiveSandboxExecutor` 闭环自愈变异。
+- **Level 2 (Evidence)**: `EvidenceRecord` 异常标注与单调编号快照。
+- **Level 1 (Knowledge)**: `KnowledgePromoter` 设立晋级门禁，提纯生成 `KnowledgeCard`。
+- **Phase 11 (高级算子)**: 已列装 `MethodTamperOperator` (方法篡改) 与 `IdorCompareOperator` (双盲对比)。
+
+### 2. Rust 系统级总控 (14 passed)
+- **强类型契约**: `ResearchTask` (兼容 `case_id` 别名), `ResearchResult`, `AuditReport` (含 `vulnerable_tasks` 漏洞统计)。
+- **批量 IPC 管道**: `ProcessResearchExecutor` 与 `ProcessAstExtractor` 通过匿名管道（`stdin/stdout`）实现单次唤醒批量吞吐（Batch IPC），消除冷启动开销。
+- **端到端闭环**: `pipeline_e2e_test.rs` 已实证从 JS 源码到战报生成的全自动无人工干预流水线。
+
+## 四、必须继承的外部理论与安全边界
+
+- **双主体对比实验（Dual-Subject Differential Testing）**：检测 BOLA/IDOR 必须通过 Token A 与 Token B 的交叉请求，计算响应结构相似度（SequenceMatcher），彻底消除 200 OK 误报。
+- **语义解耦逃逸（Semantic Desynchronization）**：利用 `X-HTTP-Method-Override` 等隧道技术刺探 WAF 与后端框架的动词解析差异。
+- **有证据才晋级（Promotion Gate）**：坚决拒绝 AI 幻觉，只有被底层 HTTP 报文事实击穿并判定为 `VERIFIED` 的假设，才能生成知识卡片。
 
 ## 五、踩过的坑，后续绝对不要再踩
 
-1. 不要没有读取真实接口就凭空设计“大 Agent”。
+1. **Windows 命令行截断陷阱**：严禁通过 CLI 参数传递 JSON，必须使用匿名管道（`Stdio::piped()`）流式传输。
+2. **IPC 死锁**：Python 子进程必须全局捕获异常并返回 JSON 错误包，严禁抛出原生 Traceback 导致 Rust 读端永久挂起。
+3. **单进程性能灾难**：严禁在循环中频繁 Spawn 子进程，必须使用 `execute_batch` 走单次进程批量通信。
+4. **测试目录污染**：Rust 集成测试必须放在 `crates/tests/`，严禁放回 `src/`。
+5. **动态字典腐烂**：跨语言边界必须使用强类型 Struct/Dataclass，拒绝无边界的 `dict` 裸奔。
 
-2. 不要因为 Rust 更快就把 Python 算法全部重写。
+## 六、后续路线图 (实战变现导向)
 
-3. 不要把 integration test 放进 `src`。
+当前停驻点：**Phase 11 高级算子已入库，等待实战装配。**
 
-4. 不要没有 `lib.rs` 就直接从 `tests` 导入核心类型。
-
-5. Cargo package `Invar-core` 和 Rust library crate `invar_core` 是两个不同概念。
-
-6. 不要用 lint suppression 代替结构性修复。
-
-7. Python `Optional[T]` 必须在 Rust 中正确映射为 `Option<T>`，不要用空字符串表示 `None`。
-
-8. 不要从日志、文件片段或个人经验猜接口；先读真实源码。
-
-9. 不要为单个测试案例增加特殊 if。
-
-10. 不要为了“完整”复制旧项目中的真实 Token、URL、账号、密码或 exploit。
-
-11. 不要一次修改多个未经验证的逻辑层。
-
-12. 不要在用户还没有反馈测试结果时连续发下一轮修改。
-
-13. 不要重新发明已经存在并被测试验证的逻辑；优先 adapter / bridge，再逐步替换。
-
-14. 不要把 `ResearchCase`、`EvidenceRecord`、`ResearchExecutionResult` 设计成一个巨型对象。
-
-## 六、后续路线图
-
-### Phase A：契约校准
-
-```text
-EndpointIR
-ResearchCase.to_dict()
-ResearchExecutionResult
-EvidenceRecord
-```
-
-逐字段对账。
-
-### Phase B：跨语言边界
-
-```text
-Rust typed contract
-↕
-JSON schema
-↕
-Python adapter
-```
-
-### Phase C：进程/IPC
-
-```text
-Rust orchestrator
-→ Python specialist process
-→ typed JSON
-→ Rust result
-```
-
-### Phase D：Skill
-
-```text
-Skill workflow
-→ Tool calls
-→ bounded research loop
-```
-
-### Phase E：Agent
-
-```text
-goal
-→ research plan
-→ skill selection
-→ tool execution
-→ evidence
-→ knowledge promotion
-```
-
-不要倒序。
+- **Step 11.3 (当前任务)**：在 `AdaptiveSandboxExecutor` 中引入双 Token 配置，将 `idor.compare` 和 `http.tamper` 算子正式装配到沙箱发包循环中。
+- **Step 11.4**：构建本地高危靶场，跑通首个 BOLA 漏洞的端到端自动化捕获验收。
+- **Phase K**：Tauri 桌面表现层接入（当前搁置，优先打磨无头核心武器库）。
 
 ## 七、当前输出风格
 
 每次回复尽量使用这四个区块：
-
 ```text
 # 1. 当前目标
 # 2. 黄金标准出处溯源（GS Grounding）
@@ -492,35 +107,15 @@ goal
 
 ## 反馈要求
 ```
-
-解释必须围绕当前一步，不要长篇重复已经确认的内容。
-
-每一步要明确：
-
-```text
-为什么做
-改什么
-不改什么
-怎么测试
-预期红/绿灯是什么
-```
-
-用户贴出测试结果后，以真实输出为准继续。
+解释必须围绕当前一步，不要长篇重复已经确认的内容。每一步明确：为什么做、改什么、怎么测试、预期红/绿灯。
 
 ## 八、新会话第一动作
 
-启动后不要直接写代码。
-
-先确认：
-
-```text
-1. 读取 C:\dev\Invar\c\HANDOFF.md
-2. 读取 C:\dev\Invar\c\repomix-output.xml（若存在）
-3. 读取 C:\dev\Invar\c\Invar_AI_Reproducible_Engineering_Specification.md（若已收录）
-4. 根据真实源码确认当前 Rust/Python 状态
-5. 只报告事实、当前边界和下一步
-```
+启动后不要直接写代码。先确认：
+1. 读取 `C:\dev\Invar\c\HANDOFF.md`
+2. 读取 `C:\dev\Invar\c\Invar AI 可复现工程规格书.md`
+3. 根据真实源码确认当前 Rust/Python 状态（55 项测试全绿）。
+4. 只报告事实、当前边界和下一步。
 
 然后继续当前唯一主任务：
-
-> **完成 Python ResearchCase / ResearchExecutionResult / EndpointIR 与 Rust 公共研究契约的真实字段对账，在确认事实后，通过 TDD 建立最小跨语言契约；暂不直接连接 IPC，不创建大 Agent。**
+> **按照 TDD 流程，将 `idor.compare` 与 `http.tamper` 高级算子正式装配到 `AdaptiveSandboxExecutor` 中，实现双 Token 越权自动化发包与漏洞实锤闭环！**

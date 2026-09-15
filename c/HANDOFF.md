@@ -1,6 +1,6 @@
 # Invar 项目会话交接文档（HANDOFF）
 
-版本：2026-09-15 五层认知架构全面合流收口版  
+版本：2026-09-16 高级研究算子列装与 55 项测试全绿版  
 项目根目录：`C:\dev\Invar`
 
 ---
@@ -8,12 +8,13 @@
 ## 0. 给新会话 AI 的最高优先级说明
 
 这是一个正在进行中的 **Invar Rust + Python 双引擎工业级自动化安全研究系统**。
+当前核心商业目标：**以实战漏洞挖掘变现为导向，主攻高价值逻辑漏洞（越权、未授权、破坏性操作）**。
 
 当前架构定位已完成实证贯通：
 
 ```text
 Rust = 系统级总控 / 编排 / 生命周期 / 进程管理 / 管道 IPC / 资源管理 / 并发边界 / 强类型全局战报聚合
-Python = 专业研究算法 / AI / ML / Tree-sitter AST 解析 / 自适应报错变异 / 安全不变量推理 / 科研假说演绎 / 知识晋级提纯
+Python = 专业研究算法 / AI / ML / AST 解析 / 自适应报错变异 / 安全不变量推理 / 科研假说演绎 / 知识晋级 / 高级攻防算子
 ```
 
 核心工程原则：
@@ -41,7 +42,7 @@ Rust 端 (14 passed, 0 warnings):
   ├── ProcessAstExtractor (匿名管道 AST 提取器)  ✅
   └── 全量单元与集成测试 (14 passed)          ✅
 
-Python 端 (34 passed, 0 failed):
+Python 端 (41 passed, 0 failed):
   ├── HttpTransport (确定性发包)              ✅
   ├── FeedbackInterpreter (Go 报错模式识别)    ✅
   ├── MutationPolicy (自适应载荷变异)          ✅
@@ -56,69 +57,28 @@ Python 端 (34 passed, 0 failed):
   ├── HypothesisEngine (自主假设推演与决算机) ✅
   ├── KnowledgeCard (经验证不可变知识卡片模型) ✅
   ├── KnowledgePromoter (带门禁的安全知识晋级器) ✅
-  └── 全量回归测试集 (34 passed, 0 failed)    ✅
+  ├── MethodTamperOperator (HTTP方法篡改算子)  ✅
+  ├── IdorCompareOperator (BOLA双盲对比算子)   ✅
+  └── 全量回归测试集 (41 passed, 0 failed)    ✅
 ```
 
-### 1.2 彭峙酿五层认知体系实证映射
-```text
-┌─────────────────────────────────────────────────────────────┐
-│  Level 5: Agent 认知规划层                                   │
-│  • HypothesisEngine 自主生成 H-IDOR, H-AUTH, H-DESTRUCT     │
-│  • 假设状态机: PROPOSED -> VERIFIED / REFUTED               │
-└──────────────────────────────┬──────────────────────────────┘
-                               │
-┌──────────────────────────────▼─────────────────────────────┐
-│  Level 4: Skill 业务策略与安全不变量层                       │
-│  • InvariantEvaluator: destructive_confirmation, auth_bound │
-│  • 合成 ResearchDecision (vulnerable / confirmed)           │
-└──────────────────────────────┬──────────────────────────────┘
-                               │
-┌──────────────────────────────▼─────────────────────────────┐
-│  Level 3: Harness 确定性脚手架与双向管道                     │
-│  • Tree-sitter AST 解析器 + 去重 (ast_worker)               │
-│  • 匿名管道 Batch IPC 通道 (40x 极速吞吐)                   │
-│  • 自适应闭环沙箱变异 (AdaptiveSandboxExecutor)             │
-└──────────────────────────────┬──────────────────────────────┘
-                               │
-┌──────────────────────────────▼─────────────────────────────┐
-│  Level 2: Evidence 证据链留痕                               │
-│  • 连续单调编号 ProbeAttempt 变异轨迹                       │
-│  • EvidenceRecord 异常标注 (is_anomaly, VULN_FOUND)        │
-└──────────────────────────────┬──────────────────────────────┘
-                               │
-┌──────────────────────────────▼─────────────────────────────┐
-│  Level 1: Knowledge 知识晋级提纯层                           │
-│  • KnowledgePromoter: 严格晋级门禁 (拒绝未证实推测)         │
-│  • KnowledgeCard: 包含 claim, severity, remediation, prov   │
-└─────────────────────────────────────────────────────────────┘
-```
+### 1.2 高级研究算子库 (Phase 11)
+| 算子标识 | 核心能力 | 解决的实战痛点 | 状态 |
+| :--- | :--- | :--- | :--- |
+| `http.tamper` | 生成 Header 隧道、Query 隧道与动词替换变体 | 绕过 WAF 与后端框架的动词语义错位，实现防火墙逃逸 | ✅ 已就绪 |
+| `idor.compare` | 基于 `SequenceMatcher` 的双主体响应相似度对比 | 彻底消除 200 OK 误报，精准实锤水平越权 (BOLA) 漏洞 | ✅ 已就绪 |
 
 ---
 
-## 2. 核心知识卡片范例（提纯成果）
+## 2. 测试套件与全量验证命令
 
-| 卡片类型 | 归类 (Category) | 严重性 | 触发条件 | 产出修复指引 (Remediation) |
-| :--- | :--- | :--- | :--- | :--- |
-| 破坏性接口二次确认缺失 | `DESTRUCTIVE_GUARD_MISSING` | **HIGH** | `H-DESTRUCT` 假设被证实（无 confirm 成功清空数据） | 建议在路由中间件中强制拦截缺失 confirm 或二次验证令牌的破坏性请求 |
-| 敏感特权路由缺失认证 | `BROKEN_AUTHENTICATION` | **CRITICAL** | `H-AUTH` 假设被证实（未带 Token 被异常放行 200） | 建议在路由拦截器中强制校验 Authorization 身份凭证并严密核验 JWT 签名 |
-| 安全基线事实卡片 | `DESTRUCTIVE_GUARD_VERIFIED` / `AUTHENTICATION_ENFORCED` | **INFO** | 对应假设被证伪（服务端坚守 401/403 或强制确认） | 记录防御生效证据，作为后续 Agent 长期记忆，防止重复试探 |
-
----
-
-## 3. 测试套件与全量验证命令
-
-### 3.1 Rust 测试集（14 passed，0 warnings）
+### 2.1 Rust 测试集（14 passed，0 warnings）
 验证命令：
 ```powershell
 cargo test --manifest-path 'C:\dev\Invar\src-tauri\crates\Cargo.toml'
 ```
-覆盖清单：
-- 库单元测试（1 passed）
-- 契约、批量调度与漏洞指标集成测试 `orchestrator_contract_test.rs`（10 passed）
-- 跨进程 IPC 测试 `process_executor_contract_test.rs`（2 passed）
-- 全链路端到端闭环测试 `pipeline_e2e_test.rs`（1 passed）
 
-### 3.2 Python 测试集（34 passed，0 failed）
+### 2.2 Python 测试集（41 passed，0 failed）
 验证命令：
 ```powershell
 $env:PYTHONPATH="C:\dev\Invar\src-tauri\python\src"; uv run --project "C:\dev\Invar\src-tauri\python" --python 3.11 python -m unittest `
@@ -134,14 +94,16 @@ $env:PYTHONPATH="C:\dev\Invar\src-tauri\python\src"; uv run --project "C:\dev\In
     "C:\dev\Invar\src-tauri\python\tests\test_invariant_evaluator.py" `
     "C:\dev\Invar\src-tauri\python\tests\test_sandbox_invariant_integration.py" `
     "C:\dev\Invar\src-tauri\python\tests\test_hypothesis_engine.py" `
-    "C:\dev\Invar\src-tauri\python\tests\test_knowledge_promoter.py"
+    "C:\dev\Invar\src-tauri\python\tests\test_knowledge_promoter.py" `
+    "C:\dev\Invar\src-tauri\python\tests\test_method_tamper.py" `
+    "C:\dev\Invar\src-tauri\python\tests\test_idor_compare.py"
 ```
 
 ---
 
-## 4. 下一步演进路线
+## 3. 下一步严格演进路线 (实战变现导向)
 
-下一阶段核心任务（Phase K：Tauri 桌面表现层接入）：
-1. **Tauri Command 调度桥接**：在 Rust 侧暴露 `audit_target` 命令，接收前端传入的源码路径或代码文本，一键驱动双引擎流水线。
-2. **流式进度事件（Streaming Events）**：通过 Tauri 事件总线（Event Emitter）向前端 Vue3 实时推送“端点提炼中”、“沙箱自愈变异中”、“漏洞捕获警报”等动态状态。
-3. **知识卡片大屏渲染**：前端直接消费 Rust 回传的 `AuditReport` 与结构化知识卡片，呈现现代化安全审计可视化看板！
+下一阶段核心任务：**将高级算子装配至沙箱，打通实战发包链路**。
+1. **IDOR 实战装配**：在 `AdaptiveSandboxExecutor` 中引入双 Token 配置（`auth_token_a` 与 `auth_token_b`）。当用例存在 `H-IDOR` 假设时，沙箱自动触发 `idor.compare` 算子，完成“基线请求 -> 越权请求 -> 相似度对比 -> 漏洞定性”的全自动发包闭环。
+2. **Tamper 实战装配**：当常规探测被 403 拦截且存在 `H-DESTRUCT` 或 `H-AUTH` 时，自动调用 `http.tamper` 生成变体进行逃逸重试。
+3. **端到端实战靶场验收**：在本地起一个带有真实 BOLA 漏洞的 Python 靶场，用 Rust 总控一键扫描并成功输出 `vulnerable_tasks: 1` 的战报！
