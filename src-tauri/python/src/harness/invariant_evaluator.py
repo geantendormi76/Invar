@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from typing import Any, Dict, Optional
+from typing import Any, Dict, List, Optional
 
 from harness.models import EndpointIR
 from harness.research_models import ResearchCase, ResearchDecision, SecurityInvariant
@@ -116,20 +116,24 @@ class InvariantEvaluator:
         status_code: int,
         payload: Dict[str, Any],
         headers: Optional[Dict[str, str]] = None,
+        evaluations: Optional[List[InvariantEvaluation]] = None,
     ) -> Optional[ResearchDecision]:
         """
         对 ResearchCase 挂载的全部安全不变量执行综合评估，合成全局 ResearchDecision
+        可直接接收外部专业算子 (如 IdorCompareOperator) 的既成评估事实列表
         """
         if not case.invariants:
             return None
 
-        evaluations = [
-            cls.evaluate(inv, case.endpoint, status_code, payload, headers)
-            for inv in case.invariants
-        ]
+        effective_evaluations = evaluations
+        if effective_evaluations is None:
+            effective_evaluations = [
+                cls.evaluate(inv, case.endpoint, status_code, payload, headers)
+                for inv in case.invariants
+            ]
 
         # 优先级：vulnerable (击穿) > inconclusive (存疑) > confirmed (安全)
-        vulnerable_evals = [e for e in evaluations if e.status == "vulnerable"]
+        vulnerable_evals = [e for e in effective_evaluations if e.status == "vulnerable"]
         if vulnerable_evals:
             decision = ResearchDecision(
                 status="vulnerable",
@@ -138,7 +142,7 @@ class InvariantEvaluator:
             case.set_decision(decision)
             return decision
 
-        inconclusive_evals = [e for e in evaluations if e.status == "inconclusive"]
+        inconclusive_evals = [e for e in effective_evaluations if e.status == "inconclusive"]
         if inconclusive_evals:
             decision = ResearchDecision(
                 status="inconclusive",
@@ -149,7 +153,7 @@ class InvariantEvaluator:
 
         decision = ResearchDecision(
             status="confirmed",
-            rationale="; ".join(e.rationale for e in evaluations),
+            rationale="; ".join(e.rationale for e in effective_evaluations),
         )
         case.set_decision(decision)
         return decision

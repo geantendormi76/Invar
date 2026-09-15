@@ -129,6 +129,20 @@ class HypothesisEngine:
                         new_status = "INCONCLUSIVE"
                         notes = ev.rationale
 
+            # 决算水平越权假设
+            elif h.hypothesis_id.startswith("H-IDOR"):
+                if "idor_boundary" in eval_map:
+                    ev = eval_map["idor_boundary"]
+                    if ev.status == "vulnerable":
+                        new_status = "VERIFIED"
+                        notes = ev.rationale
+                    elif ev.status == "confirmed":
+                        new_status = "REFUTED"
+                        notes = ev.rationale
+                    elif ev.status == "inconclusive":
+                        new_status = "INCONCLUSIVE"
+                        notes = ev.rationale
+
             resolved.append(
                 Hypothesis(
                     hypothesis_id=h.hypothesis_id,

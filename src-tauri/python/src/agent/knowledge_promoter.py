@@ -107,4 +107,37 @@ class KnowledgePromoter:
                     )
                     cards.append(card)
 
+            # 3. 提炼水平越权 / 属主鉴权隔离知识 (BOLA / IDOR)
+            elif h.hypothesis_id.startswith("H-IDOR"):
+                if h.status == "VERIFIED":
+                    card = KnowledgeCard(
+                        card_id=f"KC-IDOR-{case.case_id}",
+                        category="BOLA_IDOR_VULNERABILITY",
+                        title="对象级属主鉴权缺失 (BOLA / IDOR 水平越权)",
+                        claim=f"端点 [{case.endpoint.method} {case.endpoint.path}] 允许攻击者跨租户/跨主体直接访问受害者对象资源",
+                        severity="HIGH",
+                        verification_state="VERIFIED",
+                        confidence=1.0,
+                        source_hypothesis=h.hypothesis_id,
+                        provenance_task=case.case_id,
+                        remediation="建议在服务端业务逻辑与数据访问层 (DAL) 强制校验当前会话主体与请求目标对象标识符的属主绑定关系",
+                        evidence_summary=h.evidence_notes,
+                    )
+                    cards.append(card)
+                elif h.status == "REFUTED":
+                    card = KnowledgeCard(
+                        card_id=f"KC-IDOR-SAFE-{case.case_id}",
+                        category="BOLA_IDOR_ENFORCED",
+                        title="对象级属主访问控制坚固",
+                        claim=f"端点 [{case.endpoint.method} {case.endpoint.path}] 已有效实施租户与属主隔离，越权探测未发生数据泄露",
+                        severity="INFO",
+                        verification_state="REFUTED",
+                        confidence=1.0,
+                        source_hypothesis=h.hypothesis_id,
+                        provenance_task=case.case_id,
+                        remediation="保持现有属主访问控制逻辑",
+                        evidence_summary=h.evidence_notes,
+                    )
+                    cards.append(card)
+
         return cards
