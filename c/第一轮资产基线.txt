@@ -1,0 +1,51 @@
+授权目标
+└── ikuai8.com
+
+Subfinder
+└── 99 个候选子域
+
+ingest_subdomains
+└── subdomains.jsonl
+
+HTTPX
+├── 99 个输入
+└── 37 个 Web 存活 Host
+
+live_hosts.jsonl
+└── 37 个 Host
+
+Katana 输入生成
+└── 37 个 https://host
+
+Katana -d 1 实跑
+├── 11911 条原始记录
+├── 369 条成功记录
+└── 179 个 JavaScript URL
+
+normalize_katana.py
+├── urls.jsonl        369
+└── javascript.jsonl 179
+
+# 已经真正跑通了 AST → EndpointIR/风险分析这一层L，当前真实基线
+
+| 阶段            |                                              结果 |
+| ------------- | ----------------------------------------------: |
+| 本地 JS 资产      |                                             209 |
+| AST 原始 API 节点 |                                        **1221** |
+| 成功下潜剥离参数字典    |                                         **300** |
+| CRITICAL      |                                          **25** |
+| HIGH          |                                          **59** |
+| 完整快照凭证        |                                           **0** |
+| 报告            | `C:\dev\Invar\tmp\ikuai8_endpoints_report.json` |
+
+---
+
+其中最重要的是：
+209 JS
+  ↓
+1221 API 节点
+  ↓
+300 个成功进入参数剥离
+  ↓
+25 CRITICAL
+59 HIGH

@@ -114,7 +114,7 @@ cargo test --manifest-path 'C:\dev\Invar\src-tauri\crates\Cargo.toml'
 启动后不要直接写代码。先确认：
 1. 读取 `C:\dev\Invar\c\HANDOFF.md`
 2. 读取 `C:\dev\Invar\c\Invar AI 可复现工程规格书.md`
-3. 根据真实源码确认当前 Rust/Python 状态（55 项测试全绿）。
+3. 读取 `C:\dev\Invar\c\repomix-output.xml的项目核心源码`
 4. 只报告事实、当前边界和下一步。
 
 然后继续当前唯一主任务：
