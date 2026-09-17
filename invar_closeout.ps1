@@ -149,12 +149,13 @@ if (-not $agentMarkerPresent) {
         $changedLines |
         Where-Object {
             $line = $_
-            $line -notmatch '--agent' -and
+            $line -notmatch '--agent(?:\s|["''-]|$)' -and
             $line -notmatch 'agent-max-candidates' -and
             $line -notmatch 'research_agent' -and
             $line -notmatch 'model_provider' -and
             $line -notmatch 'agent_candidates' -and
-            $line -notmatch 'agent'
+            $line -notmatch 'research_agent\.py' -and
+            $line -notmatch 'model_provider\.py'
         }
     )
 
@@ -201,11 +202,32 @@ foreach ($path in @($modelProvider, $researchAgent)) {
 
 $scanAfter = Read-Text $scanPipeline
 
-if ($scanAfter -match '--agent|max-candidates|research_agent|model_provider') {
-    throw "收口失败：scan_pipeline.py 仍包含 Agent 实验接口。"
+# 注意：scan_pipeline.py 正常包含 `from agent.risk_engine import RiskEngine`，
+# 因此不能用裸 `agent` 关键词判断是否仍残留错误实验代码。
+$forbiddenScanMarkers = @(
+    '--agent',
+    'agent-max-candidates',
+    'research_agent',
+    'model_provider'
+)
+
+$remainingMarkers = @(
+    $forbiddenScanMarkers |
+    Where-Object { $scanAfter -match [regex]::Escape($_) }
+)
+
+if ($remainingMarkers.Count -gt 0) {
+    throw "收口失败：scan_pipeline.py 仍包含 Agent 实验接口：$($remainingMarkers -join ', ')"
 }
 
 Write-Host "[OK] 目录边界与关键文件检查通过。" -ForegroundColor Green
+
+$agentExperimentalFiles = @($modelProvider, $researchAgent) |
+    Where-Object { Test-Path -LiteralPath $_ }
+
+if ($agentExperimentalFiles.Count -gt 0) {
+    throw "收口失败：以下实验文件仍存在：$($agentExperimentalFiles -join '; ')"
+}
 
 Write-Host "`n当前收口后的 Git 状态："
 git -C $Root status --short
