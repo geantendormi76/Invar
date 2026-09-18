@@ -368,25 +368,107 @@ EndpointIR
 
 `--probe` 会进入真实探针执行逻辑，不应该和首次 AST 基线扫描混在一起。当前测试代码也明确区分了普通扫描参数和 `--probe/--base-url`。
 
-### 目前我们已经确认的链路
+
+真正进入 Invar 时，建议固定使用这种 Prompt
 
 ```text
-Subfinder
-   ↓
-HTTPX
-   ↓
-Katana
-   ↓
-normalize_katana
-   ↓
-javascript.jsonl     209
-   ↓
-download_javascript
-   ↓
-raw_js                209
-   ↓
-scan_pipeline         ← 现在从这里继续
-   ↓
+现在开始一个 Invar 研究会话。
+
+【运行环境】
+Pi 当前工作目录：
+C:\dev\agent-workspace
+
+Invar 项目根目录：
+C:\dev\Invar
+
+【输入】
+raw_js：
+<填写实际 raw_js 路径>
+
+【架构边界】
+Pi 是外部编排 Agent。
+Invar 是研究执行与证据系统。
+
+不得在 Pi 层自行重实现 Invar Core 已有能力。
+优先调用现有 Tool Contract / Skill / Invar Core。
+不得通过模型猜测替代正式 Evidence。
+
+【当前目标】
+把这个 raw_js 按 Invar 正式研究流程推进。
+
+【严格阶段】
+Stage 0 → Stage 1 → Stage 2 → Stage 3 → Stage 4 → Stage 5
+
+当前先只执行到 Stage 2。
+
+【Stage 0】
+确认当前 scope / authorization 是否存在且完整。
+缺失则 BLOCKED，不得进入动态验证。
+
+【Stage 1】
+确认 raw_js 是否已经进入 Invar：
+raw_js → AST → EndpointIR
+
+报告：
+- 输入路径
+- 解析状态
+- EndpointIR 数量
+- risk 分布
+- 输出 artifact 路径
+
+【Stage 2】
+执行：
 EndpointIR
+→ RiskEngine
+→ Candidate Queue
+→ HypothesisEngine
+→ ResearchTask
+→ ResearchCase
+
+重点审计：
+ResearchTask → EndpointIR / ResearchCase 的字段是否完整保留。
+
+特别检查：
+- source_file
+- extracted_params
+- tags
+- risk_score
+- method
+- path
+- provenance
+
+发现字段丢失时：
+先记录为结构问题并定位完整调用链。
+不要临时补字段。
+不要硬编码。
+不要直接绕过 Adapter。
+
+【禁止事项】
+- 不运行未经授权的网络探测
+- 不执行 curl 进行手工绕过 Invar
+- 不跳过阶段
+- 不把 CRITICAL/HIGH 当作已确认漏洞
+- 不把 Hypothesis 当作 Evidence
+- 不因为局部问题而修改核心架构
+- 不为了完成任务伪造子 Agent 结果
+
+【完成门槛】
+只有 Stage 2 的所有必需检查完成后，才能声明 Stage 2 = COMPLETE。
+否则必须声明：
+NOT_COMPLETE / BLOCKED / INCONCLUSIVE
+
+最后输出：
+GOAL
+DONE
+BLOCKED
+INCONCLUSIVE
+EVIDENCE
+NEXT
 ```
 
+这个 Prompt 的意义不是“教 AI 怎么写代码”。它实际上是在给 Pi 一个：Research Controller Protocol
+
+
+```text
+raw_js 生成 → Pi 接管 → 调用 Invar → Stage 1 静态分析 → Stage 2 研究准备 → Stage 3 动态验证 → Evidence → Promotion → Report
+```

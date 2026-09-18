@@ -17,7 +17,7 @@
   },
   "include": [
     "README.md",
-    "c/**/*.md",
+    "c/*.md",
     "src-tauri/Cargo.toml",
     "src-tauri/crates/**/Cargo.toml",
     "src-tauri/crates/**/src/**/*.rs",

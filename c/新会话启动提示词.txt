@@ -1,0 +1,11 @@
+你好！请先完整阅读我使用 Repomix打包好的代码资产文件 `repomix-output.xml`项目以及HANDOFF.md
+
+工具的路径：C:\dev\bin\llama
+
+这份2份研究论文将作为我们最高的黄金标准参考！我们接下来的所有开发必须要1:1对齐这2份研究论文：
+1、On the Failure of Topic-Matched Contrast Baselines
+2、There Is More to Refusal in Large Language Models
+
+---
+
+请告知我你对我的项目理解，注意：这一步不用输出任何代码实现！

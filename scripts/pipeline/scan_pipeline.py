@@ -15,11 +15,6 @@ from harness.models import EndpointIR
 from harness.extractor import JSEndpointExtractor
 from harness.sandbox_executor import AdaptiveSandboxExecutor
 from agent.risk_engine import RiskEngine
-from agent.model_provider import (
-    ModelProviderError,
-    OpenAICompatibleProvider,
-)
-from agent.research_agent import ResearchAgent
 
 
 def main():
@@ -143,6 +138,12 @@ def main():
         )
 
         try:
+            from agent.model_provider import (
+                ModelProviderError,
+                OpenAICompatibleProvider,
+            )
+            from agent.research_agent import ResearchAgent
+
             provider = OpenAICompatibleProvider()
 
             research_agent = ResearchAgent(
@@ -166,6 +167,18 @@ def main():
                 f"{len(agent_result['plans'])} 个"
             )
 
+        except ImportError as exc:
+            agent_result = {
+                "status": "error",
+                "model": None,
+                "candidate_count": 0,
+                "plans": [],
+                "error": f"缺少依赖模块: {exc}",
+            }
+
+            print(
+                f"[X] [阶段 3: 模型研究规划] {agent_result['error']}"
+            )
         except ModelProviderError as exc:
             agent_result = {
                 "status": "error",
