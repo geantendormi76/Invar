@@ -77,8 +77,13 @@ def run_ast_worker(
         dedup_key = (normalized_method, normalized_path)
         if dedup_key not in seen:
             seen.add(dedup_key)
+            endpoint_id = f"{normalized_method}:{normalized_path}"
             tasks.append({
-                "task_id": f"{normalized_method}:{normalized_path}",
+                "task_id": endpoint_id,
+                "endpoint_id": endpoint_id,
+                "coverage_id": "",
+                "hypothesis_id": None,
+                "profile": "default",
                 "method": normalized_method,
                 "path": normalized_path,
             })

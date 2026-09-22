@@ -38,14 +38,4 @@ normalize_katana.py
 | 完整快照凭证        |                                           **0** |
 | 报告            | `C:\dev\Invar\tmp\ikuai8_endpoints_report.json` |
 
----
 
-其中最重要的是：
-209 JS
-  ↓
-1221 API 节点
-  ↓
-300 个成功进入参数剥离
-  ↓
-25 CRITICAL
-59 HIGH

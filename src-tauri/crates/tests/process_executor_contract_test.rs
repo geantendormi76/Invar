@@ -3,11 +3,7 @@ use invar_core::{ProcessResearchExecutor, ResearchOrchestrator, ResearchTask};
 
 #[test]
 fn process_research_executor_satisfies_orchestrator_contract() {
-    let task = ResearchTask {
-        task_id: "POST:/api/orders".to_string(),
-        method: "POST".to_string(),
-        path: "/api/orders".to_string(),
-    };
+    let task = ResearchTask::from_legacy("POST:/api/orders", "POST", "/api/orders");
 
     let executor = ProcessResearchExecutor::new(
         "uv".to_string(),

@@ -41,9 +41,8 @@ class ScanPipelineIntegrationTests(unittest.TestCase):
                 str(output),
             ]
 
-            with patch.object(
-                scan_pipeline,
-                "AdaptiveSandboxExecutor",
+            with patch(
+                "harness.sandbox_executor.AdaptiveSandboxExecutor",
                 FakeExecutor,
             ):
                 with patch.object(

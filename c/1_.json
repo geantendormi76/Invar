@@ -4,7 +4,11 @@
     "filePath": "c/repomix-output.xml",
     "style": "xml",
     "compress": false,
-    "removeComments": false,
+    "patterns": [
+      { "pattern": "**/tests/**", "compress": true }
+    ],
+    "removeComments": true,
+    "removeEmptyLines": true,
     "showLineNumbers": false,
     "fileSummary": true,
     "directoryStructure": true,
@@ -16,8 +20,7 @@
     }
   },
   "include": [
-    "README.md",
-    "c/*.md",
+    "c/HANDOFF.md",
     "src-tauri/Cargo.toml",
     "src-tauri/crates/**/Cargo.toml",
     "src-tauri/crates/**/src/**/*.rs",
@@ -27,8 +30,7 @@
     "src-tauri/python/scripts/**/*.py",
     "src-tauri/python/tests/**/*.py",
     "src/**/*.{vue,ts,tsx,js,json}",
-    "scripts/**/*.py",
-    "tests/**/*"
+    "scripts/**/*.py"
   ],
   "ignore": {
     "useGitignore": true,

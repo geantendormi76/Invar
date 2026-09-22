@@ -13,7 +13,6 @@ if str(SRC_DIR) not in sys.path:
 from harness.config import config
 from harness.models import EndpointIR
 from harness.extractor import JSEndpointExtractor
-from harness.sandbox_executor import AdaptiveSandboxExecutor
 from agent.risk_engine import RiskEngine
 
 
@@ -196,6 +195,7 @@ def main():
     evidences = []
 
     if args.probe:
+        from harness.sandbox_executor import AdaptiveSandboxExecutor
         print(
             f"[*] [阶段 4: 闭环探针] "
             f"正在并发执行自适应探测 "
@@ -299,3 +299,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+

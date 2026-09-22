@@ -5,16 +5,31 @@ use invar_core::{
 
 #[test]
 fn research_contract_supports_json_round_trip() {
-    let task = ResearchTask {
-        task_id: "case-001".to_string(),
-        method: "POST".to_string(),
-        path: "/api/orders".to_string(),
-    };
+    let task = ResearchTask::new(
+        "case-001",
+        "POST:/api/orders",
+        "COV-AUTH-01",
+        Some("H-AUTH-1".to_string()),
+        "aggressive",
+        "POST",
+        "/api/orders",
+    );
 
     let json = serde_json::to_string(&task).unwrap();
     let restored: ResearchTask = serde_json::from_str(&json).unwrap();
 
     assert_eq!(restored, task);
+    assert_eq!(restored.endpoint_id, "POST:/api/orders");
+    assert_eq!(restored.coverage_id, "COV-AUTH-01");
+    assert_eq!(restored.hypothesis_id, Some("H-AUTH-1".to_string()));
+}
+
+#[test]
+fn research_contract_supports_legacy_instantiation_compatibility() {
+    let task = ResearchTask::from_legacy("legacy-task", "GET", "/api/items");
+    assert_eq!(task.task_id, "legacy-task");
+    assert_eq!(task.endpoint_id, "GET:/api/items");
+    assert_eq!(task.profile, "default");
 }
 
 #[test]
@@ -106,16 +121,8 @@ fn research_result_supports_python_case_id_alias() {
 #[test]
 fn research_orchestrator_supports_batch_execution() {
     let tasks = vec![
-        ResearchTask {
-            task_id: "case-001".to_string(),
-            method: "GET".to_string(),
-            path: "/api/users".to_string(),
-        },
-        ResearchTask {
-            task_id: "case-002".to_string(),
-            method: "POST".to_string(),
-            path: "/api/orders".to_string(),
-        },
+        ResearchTask::from_legacy("case-001", "GET", "/api/users"),
+        ResearchTask::from_legacy("case-002", "POST", "/api/orders"),
     ];
 
     struct MockBatchExecutor;
@@ -143,11 +150,7 @@ fn research_orchestrator_supports_batch_execution() {
 #[test]
 fn research_executor_allows_overriding_execute_batch() {
     let tasks = vec![
-        ResearchTask {
-            task_id: "batch-001".to_string(),
-            method: "GET".to_string(),
-            path: "/api/items".to_string(),
-        },
+        ResearchTask::from_legacy("batch-001", "GET", "/api/items"),
     ];
 
     struct SpecializedBatchExecutor;
@@ -182,21 +185,9 @@ fn research_executor_allows_overriding_execute_batch() {
 #[test]
 fn research_orchestrator_generates_structured_audit_report() {
     let tasks = vec![
-        ResearchTask {
-            task_id: "task-1".to_string(),
-            method: "GET".to_string(),
-            path: "/api/items".to_string(),
-        },
-        ResearchTask {
-            task_id: "task-2".to_string(),
-            method: "POST".to_string(),
-            path: "/api/orders".to_string(),
-        },
-        ResearchTask {
-            task_id: "task-3".to_string(),
-            method: "DELETE".to_string(),
-            path: "/api/danger".to_string(),
-        },
+        ResearchTask::from_legacy("task-1", "GET", "/api/items"),
+        ResearchTask::from_legacy("task-2", "POST", "/api/orders"),
+        ResearchTask::from_legacy("task-3", "DELETE", "/api/danger"),
     ];
 
     struct ReportMockExecutor;
@@ -246,16 +237,8 @@ fn research_orchestrator_generates_structured_audit_report() {
 #[test]
 fn research_orchestrator_tallies_vulnerable_tasks_in_audit_report() {
     let tasks = vec![
-        ResearchTask {
-            task_id: "vuln-task".to_string(),
-            method: "DELETE".to_string(),
-            path: "/api/danger/clear".to_string(),
-        },
-        ResearchTask {
-            task_id: "safe-task".to_string(),
-            method: "GET".to_string(),
-            path: "/api/items".to_string(),
-        },
+        ResearchTask::from_legacy("vuln-task", "DELETE", "/api/danger/clear"),
+        ResearchTask::from_legacy("safe-task", "GET", "/api/items"),
     ];
 
     struct VulnMockExecutor;

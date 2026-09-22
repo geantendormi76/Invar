@@ -84,6 +84,32 @@ class ResearchLoopIntegrationTests(unittest.TestCase):
             second_attempt.payload,
         )
 
+    def test_research_case_attempt_sequence_remains_contiguous(self) -> None:
+        endpoint = EndpointIR(
+            method="GET",
+            path="/fixture",
+        )
+
+        executor = AdaptiveSandboxExecutor()
+        case = executor._create_research_case(endpoint)
+
+        case.record_attempt(
+            payload={},
+            status_code=404,
+            response_preview="not found",
+        )
+
+        case.record_attempt(
+            payload={"id": 1},
+            status_code=200,
+            response_preview="ok",
+        )
+
+        self.assertEqual(
+            [a.attempt_number for a in case.attempts],
+            [1, 2],
+        )
+
 
 if __name__ == "__main__":
     unittest.main()

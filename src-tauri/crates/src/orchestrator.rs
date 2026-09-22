@@ -7,8 +7,58 @@ use serde::{Deserialize, Serialize};
 pub struct ResearchTask {
     #[serde(alias = "case_id")]
     pub task_id: String,
+    #[serde(default)]
+    pub endpoint_id: String,
+    #[serde(default)]
+    pub coverage_id: String,
+    pub hypothesis_id: Option<String>,
+    #[serde(default)]
+    pub profile: String,
+    #[serde(default)]
     pub method: String,
+    #[serde(default)]
     pub path: String,
+}
+
+impl ResearchTask {
+    pub fn new(
+        task_id: impl Into<String>,
+        endpoint_id: impl Into<String>,
+        coverage_id: impl Into<String>,
+        hypothesis_id: Option<String>,
+        profile: impl Into<String>,
+        method: impl Into<String>,
+        path: impl Into<String>,
+    ) -> Self {
+        Self {
+            task_id: task_id.into(),
+            endpoint_id: endpoint_id.into(),
+            coverage_id: coverage_id.into(),
+            hypothesis_id,
+            profile: profile.into(),
+            method: method.into(),
+            path: path.into(),
+        }
+    }
+
+    pub fn from_legacy(
+        task_id: impl Into<String>,
+        method: impl Into<String>,
+        path: impl Into<String>,
+    ) -> Self {
+        let m = method.into();
+        let p = path.into();
+        let ep_id = format!("{}:{}", m.to_uppercase(), p);
+        Self {
+            task_id: task_id.into(),
+            endpoint_id: ep_id,
+            coverage_id: String::new(),
+            hypothesis_id: None,
+            profile: "default".to_string(),
+            method: m,
+            path: p,
+        }
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
@@ -481,11 +531,7 @@ mod tests {
 
     #[test]
     fn research_orchestrator_supports_replaceable_executor() {
-        let task = ResearchTask {
-            task_id: "case-001".to_string(),
-            method: "POST".to_string(),
-            path: "/api/orders".to_string(),
-        };
+        let task = ResearchTask::from_legacy("case-001", "POST", "/api/orders");
 
         let orchestrator = ResearchOrchestrator::new(FakeResearchExecutor);
         let result = orchestrator.run(&task);
