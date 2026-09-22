@@ -1,2 +1,6 @@
 https://arxiv.org/abs/2606.01364 
 https://sites.google.com/site/zhiniangpeng/blogs/Hacking-with-LLMs 
+
+
+https://sn1persecurity.com/wordpress/subdomain-enumeration/
+开源项目：https://github.com/UnaPibaGeek/ctfr 
