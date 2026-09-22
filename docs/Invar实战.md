@@ -393,6 +393,8 @@ if (Test-Path $poolsFile) {
 
 #### 5.1 靶标动态分类与分流装配（P0/P1/P2 用例生成）
 ```powershell
+Set-Location -Path "C:\dev\Invar"
+
 # 驱动 assemble_triage_tasks.py 重新生成紧凑合规任务集
 uv run --project python python python/scripts/assemble_triage_tasks.py `
     --pools "artifacts/reports/triage_pools_v2.json" `
@@ -400,57 +402,25 @@ uv run --project python python python/scripts/assemble_triage_tasks.py `
     --output "artifacts/reports/targeted_research_tasks_78.json" `
     --target-pools pool_a_rule_must_keep pool_b_discrepancy
 
-# 验收最新任务集的文件体积与前 8 个任务动词
+# 验收输出的科研任务集
 $tasksFile = "artifacts\reports\targeted_research_tasks_78.json"
 if (Test-Path $tasksFile) {
     $tasksJson = Get-Content $tasksFile -Raw | ConvertFrom-Json
-    $sizeKb = [math]::Round((Get-Item $tasksFile).Length / 1KB, 2)
     Write-Host "`n==================================================" -ForegroundColor Cyan
-    Write-Host " 🎯 任务集轻量化与动词清洗最终验收" -ForegroundColor Cyan
+    Write-Host " 🎯 靶标任务装配验收战报" -ForegroundColor Cyan
     Write-Host "==================================================" -ForegroundColor Cyan
-    Write-Host "  ├─ 任务总数     : $($tasksJson.total_tasks) 个" -ForegroundColor Green
-    Write-Host "  ├─ 文件实际体积 : $sizeKb KB (预期 < 100 KB)" -ForegroundColor Green
-    Write-Host "  └─ 前 8 个最高优先级任务动词与路径核验:" -ForegroundColor Yellow
-    $tasksJson.tasks | Select-Object -First 8 | ForEach-Object {
-        Write-Host "     - [$($_.priority)] $($_.method.PadRight(6)) $($_.path.PadRight(45)) (假说: $($_.hypothesis_id))"
-    }
+    Write-Host "  ├─ 成功装配核心任务总数: $($tasksJson.total_tasks) 个" -ForegroundColor Green
+    Write-Host "  ├─ 任务文件实际体积    : $([math]::Round((Get-Item $tasksFile).Length / 1KB, 2)) KB" -ForegroundColor Green
+    Write-Host "  └─ 任务优先级分布概况  :" -ForegroundColor Yellow
+    $tasksJson.priority_breakdown | Format-List
     Write-Host "==================================================`n" -ForegroundColor Cyan
 }
 ```
 * **标准化产物**：
   * `artifacts\reports\triage_pools_v2.json`（双轨比对与高危池收敛验收战报）
-
+  * `artifacts/reports/targeted_research_tasks_78.json`（锁定 78 个核心靶心）
 
 #### 5.2 闭环沙箱探测、不变量裁决与知识卡片晋级（待解冻后执行）
 ```powershell
 
 ```
-
----
-
-## 三、仓库关键目录与职责速查表
-
-| 目录绝对路径（相对根目录） | 职责定位与存放内容 | 是否受版本控制 |
-|---|---|---|
-| `configs/base/` | 声明式配置文件（`default.json`, `project.toml`） | ✅ Git 跟踪 |
-| `crates/core/` | Rust 核心编排引擎（`ResearchOrchestrator` 跨进程调度、报告聚合） | ✅ Git 跟踪 |
-| `python/packages/core/src/` | Python 核心领域实现（`agent/`, `harness/` 核心算法与沙箱） | ✅ Git 跟踪 |
-| `python/scripts/` | Python 生产级 CLI 总控脚本（`scan_pipeline.py`, `assemble_triage_tasks.py`） | ✅ Git 跟踪 |
-| `scripts/data/asset/` | 外部资产收集、归一化、物化与双轨比对脚本（`ingest_*.py`） | ✅ Git 跟踪 |
-| `scripts/data/pipeline/` | 扫描调度与辅助数据流水线 | ✅ Git 跟踪 |
-| `scripts/audit/` | 质量审计、契约检查与学术黄金集终审脚本（`evaluate_gold_set_v4.py`） | ✅ Git 跟踪 |
-| `models/invar-intent-0.6b-v1/` | **自包含模型金库**（出厂护照 `MODEL_PASSPORT.json`、1.25GB ONNX、Tokenizer） | ⚠️ 权重文件忽略，仅护照入库 |
-| `data/targets/<domain>/` | 目标资产永久存储库（`subdomains.jsonl`, `live_hosts.jsonl`, `urls.jsonl`） | ✅ Git 跟踪基准 |
-| `artifacts/reports/` | 最终经过验证的高价值交付物（`targeted_research_tasks_78.json` 等） | ✅ Git 跟踪 |
-| `tmp/` | 临时工作台（`raw_js/`, `katana_input.txt` 等中间缓存，随时可重现清空） | ❌ Git 忽略 |
-
----
-
-## 四、核心避坑铁律与心智模型（Do Not Repeat）
-
-1. **绝对禁止跨目录相对回溯路径**：
-   * 严禁在脚本或命令中写 `../../` 或硬编码 `src-tauri`。一律从根目录出发寻址。
-2. **“发现”不等于“漏洞”（Discovery ≠ Vulnerability）**：
-   * 子域名收集与 Katana 爬出的 URL 只是**候选暴露面**。绝不允许跳过 System-1（0.6B初筛）而直接对数千个接口盲目施加模糊测试（Fuzzing），这会耗尽带宽并触发严重风控。
-3. **严格遵守三权分立判决（Separation of Powers）**：
-   * 负责寻找线索的 Agent/Hunter **绝对不能自行宣布漏洞成立**。必须经过底层沙箱客观发包证据（`EvidenceRecord`）与独立验证门禁（`PromotionGate`）两道物理关卡，方可标定为实锤发现。

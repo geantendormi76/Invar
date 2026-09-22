@@ -4,3 +4,11 @@ https://sites.google.com/site/zhiniangpeng/blogs/Hacking-with-LLMs
 
 https://sn1persecurity.com/wordpress/subdomain-enumeration/
 开源项目：https://github.com/UnaPibaGeek/ctfr 
+
+
+https://github.com/iamj0ker/bypass-403 
+ bypass-403 告诉你：在最前沿的网络边界层，如何通过协议与解析缝隙撬开那扇“本以为进不去的大门”；
+
+
+https://ngcc.dev/reports/index.html
+ngcc.dev 告诉你：在最硬核的代码内核层，如何通过标准自动化 Harness 搭配大模型，对核心逻辑不变量发起降维打击，批量斩获 Critical 实锤成果
