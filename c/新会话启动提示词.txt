@@ -1,8 +1,0 @@
-你好！请先完整阅读我使用 Repomix打包好的代码资产文件 `repomix-output.xml`项目以及HANDOFF.md
-
-黄金标准：
-https://sites.google.com/site/zhiniangpeng/blogs/Hacking-with-LLMs
-https://github.com/browser-use/jev-ultrafast
-《Needles at Scale: LLM-Assisted Target Selection for Windows Vulnerability Research》论文
-
-请告知我你对我的项目理解，注意：这一步不用输出任何代码实现！

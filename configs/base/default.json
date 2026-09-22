@@ -1,0 +1,6 @@
+{
+  "target_api_base": "https://hao.dieqiyun.top/api/v1",
+  "request_timeout": 5,
+  "max_concurrent_workers": 10,
+  "max_mutation_rounds": 4
+}

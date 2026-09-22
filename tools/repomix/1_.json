@@ -1,0 +1,319 @@
+{
+  "$schema": "https://repomix.com/schemas/latest/schema.json",
+
+  // ============================================================
+  // AI 跨会话工程交接：Full-Fidelity Core + Active Pipeline
+  //
+  // 核心原则：
+  //   1. 核心源码：保留完整实现，不使用 compress
+  //   2. 当前开发链：保留完整实现
+  //   3. 关键契约测试：保留完整实现
+  //   4. 非当前任务的测试 / 审计脚本 / 工具：不进入正文，只通过目录树暴露
+  //   5. 包元数据、运行 profile、桌面构建配置与高信号 Python 测试：保留
+  //   6. 权重、数据集、缓存、构建产物、lockfile：排除
+  //
+  // 目标不是生成“整个仓库压缩备份”，而是生成：
+  //   “足以恢复项目并继续开发的高密度工程上下文”
+  //
+  // 执行方式保持不变：
+  //   npx repomix -c tools/repomix/1_.json
+  // ============================================================
+
+  "input": {
+    "maxFileSize": 2000000
+  },
+
+  "output": {
+    "filePath": "tmp/repomix/project-handoff.xml",
+    "filePathStyle": "target-relative",
+    "style": "xml",
+
+    // 关键：不压缩核心源码。
+    // Repomix 的 compress 是全局输出选项，无法只压某些 glob。
+    // 因此本配置通过“精选 include”实现体积控制，而不是压缩源码实现。
+    "compress": false,
+
+    "headerText": "本文件是 AI 跨会话工程交接包。目标是恢复项目状态、架构、核心实现、当前开发链与关键契约，而不是替代完整源码树。优先阅读 HANDOFF.md、README.md、docs/ai/HANDOFF.md、configs/base/，然后根据当前任务继续读取仓库真实源码与测试。核心源码、当前工作链、包元数据、运行 profile、桌面构建配置与高信号测试在本包中保留完整实现；未收录的文件仅通过目录树提供索引。实际修改前必须以仓库当前源码和测试为准。",
+
+    "fileSummary": true,
+    "directoryStructure": true,
+    "includeFullDirectoryStructure": true,
+    "includeEmptyDirectories": false,
+
+    "files": true,
+
+    "removeComments": false,
+
+    // 删除纯格式空行，减少 token，但不删除代码或注释。
+    "removeEmptyLines": true,
+
+    // 行号对跨会话理解价值低；实际修改时以源码行号为准。
+    "showLineNumbers": false,
+
+    "truncateBase64": true,
+
+    "git": {
+      // 活跃文件更靠前，有利于新会话优先发现最近修改内容。
+      "sortByChanges": true,
+      "sortByChangesMaxCommits": 30,
+      "includeDiffs": false,
+      "includeLogs": false
+    }
+  },
+
+  // ============================================================
+  // 1. 永久状态与项目契约
+  // ============================================================
+  "include": [
+    "HANDOFF.md",
+    "README.md",
+
+    // 根级构建 / workspace 契约
+    "Cargo.toml",
+    "package.json",
+    "pnpm-workspace.yaml",
+    "rust-toolchain.toml",
+
+    // CI
+    ".github/workflows/**/*",
+
+    // ==========================================================
+    // 2. 核心源码：完整实现
+    // ==========================================================
+
+    // Rust 核心引擎
+    "crates/**/Cargo.toml",
+    "crates/**/src/**/*",
+
+    // Desktop / Tauri / Frontend
+    "apps/**/src/**/*",
+    "apps/**/src-tauri/src/**/*",
+    "apps/**/src-tauri/capabilities/**/*",
+    "apps/**/src-tauri/tauri.conf.json",
+    "apps/**/src-tauri/Cargo.toml",
+    "apps/**/package.json",
+    "apps/**/build.rs",
+    "apps/**/vite.config.*",
+    "apps/**/tsconfig*.json",
+    "apps/**/index.html",
+
+    // Python 核心包：完整实现
+    "python/pyproject.toml",
+    "python/.python-version",
+    "python/packages/**/src/**/*",
+    "python/packages/**/pyproject.toml",
+
+    // ==========================================================
+    // 3. 当前工作链：完整实现
+    // ==========================================================
+
+    // 当前 HANDOFF 指定的 System-2 下游任务装配 / 数据入口
+    "scripts/data/pipeline/**/*",
+    "scripts/data/asset/**/*",
+
+    // Python 侧当前主入口 / 调度脚本
+    "python/scripts/assemble_triage_tasks.py",
+    "python/scripts/scan_pipeline.py",
+
+    // 当前审计闭环中明确仍有工程意义的核心 comparator / evaluator
+    "scripts/audit/contract_checker.py",
+    "scripts/audit/evaluate_gold_set_v4.py",
+    "scripts/audit/project_inventory.py",
+
+    // ==========================================================
+    // 4. 配置、模型护照、运行态元数据
+    // ==========================================================
+    "configs/base/**/*",
+    "configs/profiles/**/*",
+    "configs/schemas/**/*",
+    "configs/registry/**/*",
+
+    "data/manifests/**/*",
+    "data/**/manifest*.json",
+
+    "models/**/MODEL_PASSPORT.json",
+    "models/**/config.json",
+
+    "runs/**/manifest.*",
+    "runs/**/config.*",
+    "runs/**/metadata.*",
+
+    // ==========================================================
+    // 5. 高信号测试：完整实现
+    // ==========================================================
+
+    // Rust 核心契约
+    "crates/**/tests/**/*contract*.rs",
+    "crates/**/tests/**/*e2e*.rs",
+    "crates/**/tests/**/*smoke*.rs",
+
+    // 当前 Python System-2 主链相关测试
+    "python/packages/core/tests/test_smoke.py",
+
+    "python/tests/test_adaptive_sandbox_baseline.py",
+    "python/tests/test_adaptive_sandbox_integration.py",
+    "python/tests/test_adaptive_sandbox_transport_baseline.py",
+    "python/tests/test_cognitive_orchestration.py",
+    "python/tests/test_coverage_ledger.py",
+    "python/tests/test_endpoint_registry_contract.py",
+    "python/tests/test_hypothesis_engine.py",
+    "python/tests/test_invariant_evaluator.py",
+    "python/tests/test_mutation_policy.py",
+    "python/tests/test_research_evidence.py",
+    "python/tests/test_research_evidence_bridge.py",
+    "python/tests/test_research_evidence_history.py",
+    "python/tests/test_research_execution_result.py",
+    "python/tests/test_research_loop_integration.py",
+    "python/tests/test_research_models.py",
+    "python/tests/test_research_run.py",
+    "python/tests/test_research_task_adapter.py",
+    "python/tests/test_research_worker.py",
+    "python/tests/test_sandbox_base_url_compatibility.py",
+    "python/tests/test_sandbox_idor_integration.py",
+    "python/tests/test_sandbox_invariant_integration.py",
+    "python/tests/test_sandbox_tamper_integration.py",
+    "python/tests/test_scan_pipeline_integration.py",
+    "python/tests/test_triage_dispatcher.py",
+    "python/tests/test_verification_and_promotion_gate.py",
+    "python/tests/test_ast_worker.py",
+    "python/tests/test_candidate_fingerprint.py",
+    "python/tests/test_feedback_interpreter.py",
+    "python/tests/test_finding_record.py",
+    "python/tests/test_http_transport.py",
+    "python/tests/test_idor_compare.py",
+    "python/tests/test_ingest_httpx.py",
+    "python/tests/test_ingest_subdomains.py",
+    "python/tests/test_knowledge_promoter.py",
+    "python/tests/test_method_tamper.py",
+    "python/tests/test_multi_run_continuity.py",
+    "python/tests/test_reporting_projections.py",
+
+    // ==========================================================
+    // 6. AI 持久工程知识 / ADR
+    // ==========================================================
+    "docs/decisions/*.md"
+  ],
+
+  // ============================================================
+  // 7. 强制排除：即使仓库未来 include 规则扩大，也不要进入交接包
+  // ============================================================
+  "ignore": {
+    "useGitignore": true,
+    "useDotIgnore": true,
+    "useDefaultPatterns": true,
+
+    "customPatterns": [
+      // 交接产物自身
+      "tmp/repomix/**",
+      "**/repomix-output*.xml",
+
+      // 凭据 / 密钥
+      ".env",
+      ".env.*",
+      "**/.env",
+      "**/.env.*",
+      "**/*.pem",
+      "**/*.key",
+      "**/*.p12",
+      "**/*.pfx",
+      "**/secrets/**",
+      "**/*credentials*/**",
+
+      // 模型权重 / 大型模型资产
+      "models/**/*.onnx",
+      "models/**/*.gguf",
+      "models/**/*.safetensors",
+      "models/**/*.bin",
+      "models/**/*.pt",
+      "models/**/*.pth",
+      "models/**/*.ckpt",
+      "models/**/*.msgpack",
+      "models/**/tokenizer.json",
+      "models/checkpoints/**",
+      "models/cache/**",
+
+      // 大型真实数据
+      "data/raw/**",
+      "data/interim/**",
+      "data/processed/**",
+      "data/**/*.csv",
+      "data/**/*.parquet",
+      "data/**/*.arrow",
+      "data/**/*.jsonl",
+      "data/**/*.sqlite",
+      "data/**/*.db",
+      "data/**/*.xlsx",
+
+      // 运行输出 / checkpoint / 日志
+      "runs/**/outputs/**",
+      "runs/**/artifacts/**",
+      "runs/**/checkpoints/**",
+      "runs/**/*.log",
+
+      // 交付产物
+      "artifacts/reports/**/*.json",
+      "artifacts/packages/**",
+      "artifacts/exports/**",
+      "artifacts/**/*.zip",
+      "artifacts/**/*.tar.gz",
+
+      // 前端 / Rust / Python 构建目录
+      "**/node_modules/**",
+      "**/dist/**",
+      "**/dist-ssr/**",
+      "**/build/**",
+      "**/target/**",
+
+      // 虚拟环境 / cache
+      "**/.venv/**",
+      "**/.uv/**",
+      "**/.uv_cache/**",
+      "**/__pycache__/**",
+      "**/*.pyc",
+      "**/*.pyo",
+      "**/.pytest_cache/**",
+      "**/.mypy_cache/**",
+      "**/.ruff_cache/**",
+
+      // IDE / OS
+      "**/.idea/**",
+      "**/.vscode/**",
+      "**/.DS_Store",
+      "**/Thumbs.db",
+
+      // 编译后二进制 / native library
+      "**/*.exe",
+      "**/*.dll",
+      "**/*.so",
+      "**/*.dylib",
+      "**/*.lib",
+      "**/*.a",
+      "**/*.wasm",
+      "**/*.pdb",
+
+      // Lockfile：跨会话开发通常不需要把完整依赖解析结果塞进上下文
+      "**/Cargo.lock",
+      "**/pnpm-lock.yaml",
+      "**/package-lock.json",
+      "**/yarn.lock",
+      "**/bun.lockb",
+      "**/uv.lock",
+      "**/poetry.lock",
+      "**/Pipfile.lock",
+
+      // 覆盖率 / 临时文件 / 日志
+      "**/coverage/**",
+      "**/.coverage",
+      "**/*.tmp",
+      "**/*.log"
+    ]
+  },
+
+  "security": {
+    "enableSecurityCheck": true
+  },
+
+  "tokenCount": {
+    "encoding": "o200k_base"
+  }
+}
