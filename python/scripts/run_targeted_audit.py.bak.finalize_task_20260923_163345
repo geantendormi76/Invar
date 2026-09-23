@@ -4,6 +4,7 @@ import json
 from pathlib import Path
 import time
 from typing import Any, Dict, List, Optional
+from harness.execution_trace import ExecutionTraceRecorder
 # 动态锁定核心库路径
 REPO_ROOT = Path(__file__).resolve().parents[2]
 SRC_DIR = REPO_ROOT / "python" / "packages" / "core" / "src"
@@ -11,7 +12,6 @@ import sys
 if str(SRC_DIR) not in sys.path:
     sys.path.insert(0, str(SRC_DIR))
 
-from harness.execution_trace import ExecutionTraceRecorder
 from agent.knowledge_promoter import KnowledgeCard, KnowledgePromoter
 from agent.model_provider import OpenAICompatibleProvider
 from harness.candidate_models import Candidate, CandidateFingerprint, CanonicalFactors, TraceStep
@@ -151,6 +151,9 @@ def main() -> int:
         ),
     )
 
+    unsubscribe_trace = executor.research_agent.subscribe(
+        trace_recorder.on_event
+    )
     run.transition_to(RunStatus.SCOPE_VERIFIED)
     run.transition_to(RunStatus.CONTEXT_READY)
     run.transition_to(RunStatus.PLAN_READY)
@@ -162,10 +165,6 @@ def main() -> int:
     # 5. 配置沙箱执行器
     cfg = InvarConfig(request_timeout=args.timeout)
     executor = AdaptiveSandboxExecutor(cfg=cfg, llm_provider=llm_provider)
-
-    unsubscribe_trace = executor.research_agent.subscribe(
-        trace_recorder.on_event
-    )
 
     # 6. 循环执行任务审查
     for idx, task in enumerate(filtered_tasks, 1):
@@ -303,15 +302,6 @@ def main() -> int:
                 unit.reviewed_paths.append(path)
                 unit.check_refs.append(f"CHK-{attack_class.upper()}")
                 unit.transition_to(CoverageStatus.COVERED)
-
-
-        trace_recorder.finalize_task(
-            task=task,
-            endpoint=endpoint,
-            execution_result=exec_res,
-            coverage_unit=ledger.get_unit(cov_id),
-            elapsed_ms=elapsed_ms,
-        )
 
     # 7. 状态机推进
     run.transition_to(RunStatus.EVIDENCE_COLLECTED)

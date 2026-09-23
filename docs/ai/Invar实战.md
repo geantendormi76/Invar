@@ -456,46 +456,81 @@ Write-Host "[✓] P0 靶点实证审计完成，报告目录: $p0OutputDir" -For
 当 P0 冒烟基线健康后，拉满全量 78 个任务（含 P1 破坏性变更与 IDOR 候选、P2 规则保底防护、P3 全域探索面），进行全业务子系统的大规模实证。
 
 ```powershell
-$allOutputDir = "artifacts\reports\targeted_audit_all_78"
+$auditArgs = @(
+    "python/scripts/run_targeted_audit.py",
+    "--tasks", "artifacts/reports/targeted_research_tasks_78.json",
+    "--report-input", "tmp/ikuai8_endpoints_report.json",
+    "--output-dir", "artifacts/reports/targeted_audit_production",
+    "--priority", "ALL",
+    "--enable-llm",
+    "--timeout", "10"
+)
 
-Write-Host "`n==================================================" -ForegroundColor Cyan
-Write-Host " 🚀 [5.2.2] 正在启动全量 78 靶向任务纵深实证审计" -ForegroundColor Cyan
-Write-Host "==================================================" -ForegroundColor Cyan
-
-# priority 设置为 ALL，全量穿透
-uv run --project python python python/scripts/run_targeted_audit.py `
-    --tasks $tasksFile `
-    --report-input $reportInput `
-    --output-dir $allOutputDir `
-    --priority ALL `
-    --timeout 10
-
-# 验收输出的战报交付物
-if (Test-Path "$allOutputDir\REPORT.md") {
-    Write-Host "`n==================================================" -ForegroundColor Cyan
-    Write-Host " 📊 靶向实证全量审计最终战报概况" -ForegroundColor Cyan
-    Write-Host "==================================================" -ForegroundColor Cyan
-    Get-Content "$allOutputDir\REPORT.md" | Select-String -Pattern "## 2. 覆盖度核心指标", "## 3. 漏洞发现总览", "实锤确认" -Context 0, 5
-    Write-Host "`n[✓] 5 大权威交付物已全部原子化落盘至: $allOutputDir" -ForegroundColor Green
-    Write-Host "==================================================`n" -ForegroundColor Cyan
-}
+uv run --project python python @auditArgs
 ```
 
-##### 5.2.3 必须恪守的底层三大防御与避坑铁律（Ground Truth）
 
-为了在其他新靶场复现时取得相同的高效、零误报战果，以下三大底层机制必须保持常驻：
-1. **物理网络代理隔离（阻断 5.5s / 66s 幽灵挂死）**：
-   `HttpTransport` 内部必须显式清理 `HTTP_PROXY` / `HTTPS_PROXY` 并设置 `NO_PROXY="*"`，严禁让请求走本地系统代理（如 Clash / v2ray 导致的握手重试超时），确保 API 物理往返在毫秒级（150ms ~ 700ms）。
-2. **业务级软拒绝识别（消灭伪 200 业务报错误报）**：
-   后端常用 HTTP 200 外壳承载 `{"code": 4003, "message": "forbidden"}`。`InvariantEvaluator` 与 `DenialClassifier` 必须能从响应体解析 40xx 业务码，将其判定为 `CONFIRMED`（安全底线已拦截），严禁因状态码为 200 而误判为未授权穿透。
-3. **前端单页应用 SPA 兜底 HTML 过滤（消灭伪 200 页面回退误报）**：
-   当 Nginx `try_files` 对不存在的 API 路由无条件回显 `index.html`（`<!DOCTYPE html...`）时，系统必须在不变量评估器中直接识别为“非真实后端 API 响应”，坚决禁止将其标记为 `VULNERABLE`。
+##### 5.2.2 两段式自适应科研循环（Phase 5.4 认知反思破局）
+* **阶段一：启发式先锋（Heuristic Turn Loop）**：
+  调度 F1（路径规范化畸变：`%2e`, Tomcat `..;/` 等）、F2（动词隧道：`X-HTTP-Method-Override`、`_method`）、F3（现代反代信任上下文：`X-Rewrite-URL`、`X-Forwarded-Prefix`、`CF-Connecting-IP`、RFC 7239 `Forwarded`）。
+* **阶段二：大模型反思破局（LLM Cognitive Reflection）**：
+  若 12 轮启发式变异均未突破，系统自动唤醒本地 9B 消融模型，注入报错正文、已尝试轮次与端点上下文，由大模型开展思维链（CoT）因果推理，派生专用 `F6_LLM_COT_REASONED` 变异体进行终审。
+
+##### 5.2.3 独立第三方复核与双黄金标准导出（Phase 5.5）
+* **三权分立与门禁**：产生的漏洞候选（Candidate）绝不允许自我复核，强制交由 `IndependentVerifier` 进行第三方独立验真，并经 `PromotionGate` 8 大前置谓词断言。
+* **双黄金交付物**：
+  1. **OpenSSF OpenVEX v0.2.0**（`openvex.json`）：工业级机器可读漏洞状态声明；
+  2. **OASIS SARIF 2.1.0**（`sarif.json`）：国际通用缺陷交换格式，原生映射代码调用流 `codeFlows`；
+  3. **4 大正交 Markdown 战报**：`REPORT.md`（高管摘要）、`FINDINGS-DETAIL.md`（实锤细节）、`NEEDS-VALIDATION.md`（存疑攻坚）、`coverage-summary.md`（账本明细）。
+
+##### 5.2.4 纯观测层事实追踪体系（Phase 6.1 `execution.jsonl`）
+* **定位**：旁路事实记录器（`ExecutionTraceRecorder`），逐任务落盘物理发包数据、时延、分类与事件流，不改变探测行为，不参与裁决。
+* **严格正交解耦**：
+  - `execution.runner_status`（任务是否完成） $\neq$ `execution.decision_status`（不变量是否击穿）
+  - `coverage.status`（账本覆盖状态） $\neq$ `FindingRecord`（确权漏洞）
+  - `LLM enabled`（全局配置启用） $\neq$ `LLM invoked`（启发式受阻实际唤醒）
+* **实测体检战报（78-Task 全量验证真实数据）**：
+  ```text
+  === 📊 Execution Trace 深度体检战报 ===
+  1. 有效解析行数     : 78 条 (100% 完整，0 损坏)
+  2. Run ID 唯一性   : 1 个 (RUN-TARGETED-1790155162)
+  3. Runner 状态分布 : {'inconclusive': 37, 'completed': 41}
+  4. 决策状态分布     : {'confirmed': 37, 'inconclusive': 4, 'None': 37}
+  5. LLM 实际唤醒任务 : 41 个 (受阻任务精准唤醒 CoT 反思，其余任务早期收敛不浪费算力)
+  6. 响应类别分布     : {'soft_access_policy_denial': 45, 'html_fallback': 25, 'method_policy_denial': 3, 'not_found': 3, 'client_error': 2}
+  ```
 
 ---
-* **标准化交付物（5 大权威事实战报）**：
-  * `findings.json`：全量机器可读、包含根因指纹与物理发包证据的结构化数据（供下游 CI/CD 与工单系统消费）；
-  * `REPORT.md`：面向安全决策层的战报总览（含执行上下文血统、客观加权覆盖率、漏洞裁决分布）；
-  * `FINDINGS-DETAIL.md`：面向一线研发与审计专家的技术细节（包含调用链路跟踪、原始 HTTP 请求/响应快照、修复加固指导）；
-  * `NEEDS-VALIDATION.md`：因缺少双主体凭证或前置条件不足而阻塞的攻坚清单（严禁标注假定严重度）；
-  * `coverage-summary.md`：按子系统和攻击面展开的 48 个覆盖单元全景明细表。
+
+### 三、生产级避坑指南与防误报铁律（Engineering Pitfalls & Ground Truths）
+
+#### 坑位 1：Windows 注册表代理导致单请求 5.7 秒超时挂死
+* **现象**：执行单个任务耗时 66 秒，整个 78 任务审计预计卡死数十分钟。
+* **根因**：Windows 上仅从环境变量移除 `ALL_PROXY` 无法阻断 Python `requests`，底层库仍会从 Windows 注册表 `Internet Settings` 中读取全局代理，导致请求被转发至不可达的本地代理端口超时重试。
+* **铁律解法**：在 `HttpTransport` 初始化时强制注入 `os.environ["NO_PROXY"] = "*"` 与 `os.environ["no_proxy"] = "*"`，阻断注册表劫持，单发时延由 5.7s 暴降至 150ms~700ms。
+
+#### 坑位 2：业务软拒绝（HTTP 200 + code: 4003）引发假高危误报
+* **现象**：访问未授权接口时，服务端网关返回 `HTTP 200 OK`，正文携带 `{"code": 4003, "message": "forbidden"}`，传统扫描器误报为“特权放行/未授权访问漏洞”。
+* **铁律解法**：`InvariantEvaluator` 严禁盲信 HTTP 200 状态码；在正文包含 `code in {4001, 4003, 4008}` 或 `forbidden` 语义时，强制裁决为 `confirmed`（安全防御坚固生效），彻底消除误报。
+
+#### 坑位 3：单页应用（SPA）Nginx 兜底页面引发假突破
+* **现象**：针对不存在的管理接口发包，Nginx `try_files` 对 404 兜底返回首页 `HTTP 200 + <!DOCTYPE html>`，扫描器误判为“路径变异突破成功”。
+* **铁律解法**：在 `research_loop` 突破判定与 `SemanticEquivalenceEvaluator` 中，严格核验响应正文是否以 `<!doctype html` 或 `<html` 开头；凡是命中前端页面回退者，坚决剔除，不予记录突破。
+
+---
+
+### 四、标准化全域交付物资产清单
+
+完成阶段 5 执行后，在 `artifacts/reports/targeted_audit_production/` 目录下原子化固化以下 8 大交付物：
+
+```text
+artifacts/reports/targeted_audit_production/
+├── execution.jsonl          # [事实层] 78 任务逐任务微观发包、响应分类、耗时与 LLM 反思完整轨迹
+├── findings.json            # [确权层] 经独立复核实锤的权威漏洞发现记录 (当前实锤 0 个，保持零假阳性)
+├── openvex.json             # [合规层] 严格对齐 OpenSSF OpenVEX v0.2.0 标准规范的安全声明凭证
+├── sarif.json               # [工具层] 严格对齐 OASIS SARIF 2.1.0 标准规范的缺陷报告 (支持 VS Code 导入)
+├── REPORT.md                # [决策层] 包含审计范围血统、加权覆盖率、发现总览的高管战报
+├── FINDINGS-DETAIL.md       # [技术层] 实锤漏洞的代码溯源调用链 (Trace) 与微观发包证明
+├── NEEDS-VALIDATION.md      # [攻坚层] 严禁虚标严重度、明确记录阻断原因的存疑待办清单
+└── coverage-summary.md      # [账本层] 覆盖单元 (CoverageUnit) 全景明细与路径审查责任矩阵
 ```
