@@ -13,7 +13,9 @@ class ReportProjector:
     """
     Invar 权威战报投影生成器 (Authoritative Report Projector)
     严守投影原则：所有文字报告纯粹由 Core 事实对象投影衍生，拒绝人为主观篡改
+    支持 OASIS SARIF 2.1.0 国际通用缺陷交换格式
     """
+
     def __init__(
         self,
         run: ResearchRun,
@@ -23,7 +25,6 @@ class ReportProjector:
         self.run = run
         self.ledger = ledger
         self.findings = findings
-
         # 预先执行 Schema 结构审计，确保底层输入事实 100% 合规
         for f in self.findings:
             FindingSchemaValidator.assert_valid(f.to_dict())
@@ -36,6 +37,113 @@ class ReportProjector:
             "findings": [f.to_dict() for f in self.findings],
         }
         return json.dumps(data, indent=2, ensure_ascii=False)
+
+    def render_sarif_json(self) -> str:
+        """
+        投影: OASIS SARIF 2.1.0 国际标准缺陷交换格式
+        规范地址: https://docs.oasis-open.org/sarif/sarif/v2.1.0/sarif-v2.1.0.html
+        """
+        severity_to_level = {
+            Severity.CRITICAL: "error",
+            Severity.HIGH: "error",
+            Severity.MEDIUM: "warning",
+            Severity.LOW: "note",
+            Severity.INFO: "note",
+        }
+
+        rules_dict: Dict[str, Dict[str, Any]] = {}
+        sarif_results: List[Dict[str, Any]] = []
+
+        for f in self.findings:
+            if f.verdict != Verdict.CONFIRMED:
+                continue
+
+            rule_id = f.fingerprint
+            if rule_id not in rules_dict:
+                rules_dict[rule_id] = {
+                    "id": rule_id,
+                    "name": f.title,
+                    "shortDescription": {"text": f.title},
+                    "fullDescription": {"text": f.description},
+                    "help": {
+                        "text": f.remediation.guidance if f.remediation else "建议强化输入校验与权限拦截",
+                    },
+                }
+
+            # 提取主要物理位置 (优先取 Trace 汇聚点 Sink 或第一步 Entrypoint)
+            primary_step = f.trace[-1] if f.trace else None
+            locations = []
+            if primary_step:
+                locations.append({
+                    "physicalLocation": {
+                        "artifactLocation": {
+                            "uri": primary_step.file_path,
+                        },
+                        "region": {
+                            "startLine": max(1, primary_step.line),
+                        },
+                    },
+                    "message": {
+                        "text": f"Execution sink: {primary_step.description}",
+                    },
+                })
+
+            # 组装完整代码调用流 (CodeFlows / Trace)
+            thread_flow_locations = []
+            for step_idx, step in enumerate(f.trace, 1):
+                thread_flow_locations.append({
+                    "location": {
+                        "physicalLocation": {
+                            "artifactLocation": {
+                                "uri": step.file_path,
+                            },
+                            "region": {
+                                "startLine": max(1, step.line),
+                            },
+                        },
+                        "message": {
+                            "text": f"[{step.step_type.upper()}] {step.scope} - {step.description}",
+                        },
+                    },
+                    "executionOrder": step_idx,
+                })
+
+            sarif_results.append({
+                "ruleId": rule_id,
+                "level": severity_to_level.get(f.severity, "error") if f.severity else "error",
+                "message": {
+                    "text": f"{f.title}: {f.root_cause or f.description}",
+                },
+                "locations": locations,
+                "codeFlows": [
+                    {
+                        "threadFlows": [
+                            {
+                                "locations": thread_flow_locations,
+                            }
+                        ]
+                    }
+                ] if thread_flow_locations else [],
+            })
+
+        sarif_doc = {
+            "$schema": "https://raw.githubusercontent.com/oasis-tcs/sarif-spec/master/Schemata/sarif-schema-2.1.0.json",
+            "version": "2.1.0",
+            "runs": [
+                {
+                    "tool": {
+                        "driver": {
+                            "name": "Invar System-2 Verification Engine",
+                            "semanticVersion": "0.1.0",
+                            "informationUri": "https://github.com/Invar",
+                            "rules": list(rules_dict.values()),
+                        }
+                    },
+                    "results": sarif_results,
+                }
+            ],
+        }
+        return json.dumps(sarif_doc, indent=2, ensure_ascii=False)
 
     def render_report_md(self) -> str:
         """投影 2: 决策层总览 REPORT.md"""
@@ -185,7 +293,6 @@ class ReportProjector:
                 f"- **建议安全验证计划**: 请在具备受控凭据后，针对 `{', '.join(f.endpoint_refs)}` 建立专用测试单元进行差异对账。",
                 "\n---\n",
             ])
-
         return "\n".join(lines)
 
     def render_coverage_summary_md(self) -> str:
@@ -199,34 +306,31 @@ class ReportProjector:
             "| 覆盖单元 ID | 子系统 | 攻击类型 | 状态 | 审查路径清单 | 审查责任人 | 阻塞事实 |",
             "| :--- | :--- | :--- | :--- | :--- | :--- | :--- |",
         ]
-
         for u in self.ledger.units.values():
             paths_str = "<br>".join(u.starting_paths) if u.starting_paths else "N/A"
             owner = u.owner_agent_id or "-"
             unres_str = "; ".join(f.description for f in u.unresolved) if u.unresolved else "-"
             lines.append(f"| `{u.coverage_id}` | `{u.subsystem}` | `{u.attack_class}` | `{u.status.value}` | {paths_str} | `{owner}` | {unres_str} |")
-
         return "\n".join(lines)
 
     def project_all(self, output_dir: Path | str) -> Dict[str, Path]:
         """
-        一键原子化落盘全部 5 大正交交付产物
+        一键原子化落盘全量正交交付产物（含 OASIS SARIF 2.1.0 标准缺陷报告）
         """
         out = Path(output_dir)
         out.mkdir(parents=True, exist_ok=True)
-
         files = {
             "findings_json": out / "findings.json",
+            "sarif_json": out / "sarif.json",
             "report_md": out / "REPORT.md",
             "findings_detail_md": out / "FINDINGS-DETAIL.md",
             "needs_validation_md": out / "NEEDS-VALIDATION.md",
             "coverage_summary_md": out / "coverage-summary.md",
         }
-
         files["findings_json"].write_text(self.render_findings_json(), encoding="utf-8")
+        files["sarif_json"].write_text(self.render_sarif_json(), encoding="utf-8")
         files["report_md"].write_text(self.render_report_md(), encoding="utf-8")
         files["findings_detail_md"].write_text(self.render_findings_detail_md(), encoding="utf-8")
         files["needs_validation_md"].write_text(self.render_needs_validation_md(), encoding="utf-8")
         files["coverage_summary_md"].write_text(self.render_coverage_summary_md(), encoding="utf-8")
-
         return files

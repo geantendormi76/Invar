@@ -1,5 +1,4 @@
 from __future__ import annotations
-
 from dataclasses import dataclass, field
 import hashlib
 from typing import Any, Callable, Dict, List, Optional, Set, Tuple
@@ -36,6 +35,7 @@ from harness.semantic_models import (
     SemanticEquivalenceResult,
 )
 from harness.transformation_models import (
+    TransformationFamily,
     TransformationFamilyRegistry,
     TransformationVariant,
 )
@@ -98,19 +98,17 @@ def run_research_loop(
 ) -> ResearchLoopResult:
     """
     Invar System-2 纯函数科研状态机算法 (Pure Functional Research Loop Algorithm)
-    对齐 pi-agent-core runAgentLoop() 架构，支持动态干预插队与微观事件推送
+    对齐 pi-agent-core runAgentLoop() 架构，支持两段式认知跃迁与软拒绝真实防线
     """
     def _emit(event_type: ResearchEventType, payload: Optional[Dict[str, Any]] = None) -> None:
         if emit is not None:
             emit(ResearchEvent(event_type=event_type, payload=payload or {}))
 
-    # 1. 启动科研循环事件
     _emit(ResearchEventType.LOOP_START, {
         "target_endpoint": context.endpoint.endpoint_id,
         "target_url": context.target_url,
         "baseline_status": context.baseline_observation.status_code,
     })
-
     _emit(ResearchEventType.DENIAL_CLASSIFIED, {
         "primary_hypothesis": context.denial_classification.primary_hypothesis.to_dict(),
         "frontend_component": context.denial_classification.frontend_component.value,
@@ -118,15 +116,12 @@ def run_research_loop(
 
     selector = config.selector or AdaptiveExperimentSelector(default_budget=config.max_budget)
     target_verb = context.endpoint.method.upper()
-
     raw_variants = TransformationFamilyRegistry.generate_all(
         url=context.target_url,
         method=context.endpoint.method,
         target_verb=target_verb,
     )
-
     pending_variants = [v for v in raw_variants if v.variant_id not in context.tried_variants]
-
     prioritized_queue = selector.select(
         variants=pending_variants,
         classification=context.denial_classification,
@@ -137,18 +132,17 @@ def run_research_loop(
     probes_count = 0
     breakthrough = False
     evidence_chain: Optional[EvidenceChain] = None
-
     parsed_url = urlparse(context.target_url)
     root_url = f"{parsed_url.scheme}://{parsed_url.netloc}/"
     public_root_preview = config.public_root_preview
+    last_response_preview = context.baseline_observation.body_preview
 
-    # 2. 轮次迭代主循环 (Turn-based Inner Loop)
+    # 阶段一：常规启发式变异先锋 (Heuristic Turn Loop)
     while turn_index < config.max_turns and prioritized_queue:
         if signal is not None and signal.is_aborted:
             _emit(ResearchEventType.ABORTED, {"reason": signal.reason})
             break
 
-        # 轮询 Steering 队列 (动态干预插队机制)
         if config.steering_queue:
             steer_msgs_to_process = []
             if config.queue_mode == QueueMode.ONE_AT_A_TIME:
@@ -156,7 +150,6 @@ def run_research_loop(
             else:
                 steer_msgs_to_process.extend(config.steering_queue)
                 config.steering_queue.clear()
-
             for s_msg in steer_msgs_to_process:
                 r_msg = s_msg.to_research_message()
                 context.messages.append(r_msg)
@@ -169,7 +162,6 @@ def run_research_loop(
         current_exp: PrioritizedExperiment = prioritized_queue.pop(0)
         variant = current_exp.variant
         context.tried_variants.add(variant.variant_id)
-
         _emit(ResearchEventType.TURN_START, {
             "turn": turn_index,
             "variant_id": variant.variant_id,
@@ -177,12 +169,10 @@ def run_research_loop(
             "priority_score": current_exp.priority_score,
             "rationale": current_exp.selection_rationale,
         })
-
         _emit(ResearchEventType.VARIANT_SELECTED, {
             "variant_id": variant.variant_id,
             "priority_score": current_exp.priority_score,
         })
-
         _emit(ResearchEventType.PROBE_DISPATCHED, {
             "method": variant.method,
             "url": variant.url,
@@ -198,6 +188,7 @@ def run_research_loop(
                 timeout=5,
             )
             probes_count += 1
+            last_response_preview = resp_var.text
         except Exception as exc:
             probes_count += 1
             _emit(ResearchEventType.PROBE_RESPONDED, {
@@ -219,7 +210,6 @@ def run_research_loop(
             redirect_url=resp_var.headers.get("Location") or resp_var.headers.get("location"),
         )
 
-        # 懒加载公共根路由预览 (彻底剔除重写头，保证纯净首页对照)
         if variant.url.rstrip("/") == root_url.rstrip("/") and public_root_preview is None:
             try:
                 clean_root_headers = {
@@ -237,7 +227,6 @@ def run_research_loop(
             except Exception:
                 pass
 
-        # 差分计算与语义等价核验
         sem_result = SemanticEquivalenceEvaluator.evaluate(
             baseline=context.baseline_observation,
             candidate=cand_obs,
@@ -251,7 +240,6 @@ def run_research_loop(
             "body_hash_changed": sem_result.differential.body_hash_changed,
             "redirect_to_auth": sem_result.differential.redirect_to_auth_barrier,
         })
-
         _emit(ResearchEventType.SEMANTIC_EVALUATED, {
             "verdict": sem_result.verdict.value,
             "rationale": sem_result.rationale,
@@ -266,8 +254,11 @@ def run_research_loop(
             _emit(ResearchEventType.TURN_END, {"turn": turn_index, "outcome": "rejected_different_resource"})
             continue
 
-        # 连续同态重放验真 (Replay Verification)
-        if 200 <= resp_var.status_code <= 299:
+        # 核心防线：判断是否算作真正突破（排除软拒绝与 SPA 首页 HTML 200 回退）
+        is_soft = DeterministicDenialClassifier._parse_soft_denial(cand_obs) is not None
+        is_html = cand_obs.body_preview.strip().lower().startswith(("<!doctype html", "<html"))
+
+        if 200 <= resp_var.status_code <= 299 and not is_soft and not is_html:
             _emit(ResearchEventType.REPLAY_STARTED, {"variant_id": variant.variant_id})
             replay_successes = 1
             total_replays = 2
@@ -332,6 +323,109 @@ def run_research_loop(
             break
 
         _emit(ResearchEventType.TURN_END, {"turn": turn_index, "outcome": "no_penetration"})
+
+    # 阶段二：大模型认知反思破局 (LLM Cognitive Reflection Step)
+    if (
+        not breakthrough
+        and (signal is None or not signal.is_aborted)
+        and config.llm_provider is not None
+    ):
+        print(f"    [*] 🧠 启发式未突破，正在唤醒本地大模型 ({config.llm_provider.model}) 开展 CoT 认知反思...")
+        _emit(ResearchEventType.LLM_REASONING_STARTED, {
+            "endpoint": context.endpoint.endpoint_id,
+            "turns_prior": turn_index,
+        })
+        try:
+            llm_prompt = [
+                {
+                    "role": "system",
+                    "content": (
+                        "You are an API contract verification analyst. Analyze why the endpoint was blocked "
+                        "and propose a specialized variant. Always return pure JSON with keys: "
+                        "'rationale' (str), 'headers' (dict), 'payload' (dict)."
+                    ),
+                },
+                {
+                    "role": "user",
+                    "content": (
+                        f"Endpoint: {context.endpoint.method} {context.endpoint.path}\n"
+                        f"Extracted Params: {context.endpoint.extracted_params}\n"
+                        f"Baseline Status: {context.baseline_observation.status_code}\n"
+                        f"Error Sample: {last_response_preview[:300]}\n"
+                        f"Tried Variants Count: {len(context.tried_variants)}"
+                    ),
+                },
+            ]
+            llm_res = config.llm_provider.generate_structured_json(llm_prompt)
+            inferred_headers = llm_res.get("headers") or {}
+            inferred_payload = llm_res.get("payload") or {}
+            llm_rationale = llm_res.get("rationale") or "LLM-inferred custom mutation"
+            print(f"    [+] 🧠 大模型反思完成！建议理据: {llm_rationale!r}")
+
+            _emit(ResearchEventType.LLM_REASONING_COMPLETED, {
+                "inferred_headers": list(inferred_headers.keys()),
+                "rationale": llm_rationale,
+            })
+
+            # 构建大模型专属变异体并执行一次终审探测
+            llm_variant = TransformationVariant(
+                variant_id="F6_LLM_COT_REASONED",
+                family=TransformationFamily.F6_QUERY_BODY_PARSER,
+                method=context.endpoint.method,
+                url=context.target_url,
+                headers=inferred_headers,
+                payload=inferred_payload,
+                rationale=llm_rationale,
+            )
+            turn_index += 1
+            probes_count += 1
+            resp_llm = transport.request(
+                method=llm_variant.method,
+                url=llm_variant.url,
+                payload=llm_variant.payload,
+                headers=llm_variant.headers,
+                timeout=5,
+            )
+            cand_llm_obs = DenialObservation(
+                status_code=resp_llm.status_code,
+                response_headers=dict(resp_llm.headers),
+                body_preview=resp_llm.text,
+            )
+            sem_llm = SemanticEquivalenceEvaluator.evaluate(
+                baseline=context.baseline_observation,
+                candidate=cand_llm_obs,
+                variant=llm_variant,
+                expected_resource_markers=config.expected_resource_markers,
+                public_root_preview=public_root_preview,
+            )
+            is_llm_soft = DeterministicDenialClassifier._parse_soft_denial(cand_llm_obs) is not None
+            is_llm_html = cand_llm_obs.body_preview.strip().lower().startswith(("<!doctype html", "<html"))
+
+            if 200 <= resp_llm.status_code <= 299 and not is_llm_soft and not is_llm_html and sem_llm.verdict != EquivalenceVerdict.DIFFERENT_RESOURCE:
+                breakthrough = True
+                evidence_chain = EvidenceChain(
+                    chain_id=f"CHAIN-{context.endpoint.endpoint_id}-LLM-COT",
+                    target_domain=parsed_url.netloc,
+                    is_scope_verified=True,
+                    baseline_observation=context.baseline_observation,
+                    applied_variant=llm_variant,
+                    candidate_observation=cand_llm_obs,
+                    semantic_result=sem_llm,
+                    security_invariant_violated=True,
+                    invariant_rationale=f"大模型思维链推断算子成功突破边界: {llm_rationale}",
+                    replay_record=ReplayRecord(
+                        total_replays=1,
+                        successful_replays=1,
+                        is_stable=True,
+                        reproduced_status_codes=[resp_llm.status_code],
+                        rationale="LLM 变异单发核验通过",
+                    ),
+                    verdict=EvidenceVerdict.CANDIDATE,
+                    verdict_rationale=sem_llm.rationale,
+                )
+                context.evidence_chain = evidence_chain
+        except Exception as e:
+            print(f"    [-] ⚠️ 大模型反思阶段异常: {e}")
 
     if config.follow_up_queue:
         follow_up_msg = config.follow_up_queue.pop(0)

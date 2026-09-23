@@ -1,5 +1,4 @@
 from __future__ import annotations
-
 from dataclasses import asdict, dataclass, field
 from enum import Enum
 import hashlib
@@ -59,14 +58,34 @@ class DenialObservation:
     latency_ms: Optional[float] = None
     transport_error: Optional[str] = None
 
+    is_soft_denial: bool = False
+    business_code: Optional[int] = None
+    business_message: Optional[str] = None
+
     def __post_init__(self):
-        # 归一化请求头键名为小写
         self.response_headers = {k.lower(): str(v) for k, v in self.response_headers.items()}
         if not self.body_hash and self.body_preview:
             self.body_hash = hashlib.sha256(self.body_preview.encode("utf-8")).hexdigest()[:16]
 
     def to_dict(self) -> Dict[str, Any]:
         return asdict(self)
+
+
+@dataclass
+class SoftDenial:
+    """
+    软拒绝（Soft Denial）业务错误信息载体
+    """
+    business_code: Optional[int]
+    business_message: Optional[str]
+
+    def to_dict(self) -> Dict[str, Any]:
+        return asdict(self)
+
+
+def _json_loads(text: str) -> Any:
+    import json
+    return json.loads(text)
 
 
 @dataclass
@@ -77,11 +96,11 @@ class DenialHypothesis:
     hypothesis_id: str
     layer: DenialLayer
     category: DenialCategory
-    confidence: float  # 0.0 ~ 1.0
+    confidence: float
     evidence_grade: EvidenceGrade
     supporting_evidence_refs: List[str] = field(default_factory=list)
     contradicting_evidence_refs: List[str] = field(default_factory=list)
-    status: str = "PROPOSED"  # PROPOSED | VERIFIED | REFUTED | INCONCLUSIVE
+    status: str = "PROPOSED"
     rationale: str = ""
 
     def to_dict(self) -> Dict[str, Any]:
@@ -95,7 +114,7 @@ class DenialHypothesis:
 @dataclass
 class DenialClassificationResult:
     """
-    拒绝响应综合分类结果（支持多假设并存）
+    拒绝响应综合分类结果
     """
     primary_hypothesis: DenialHypothesis
     alternative_hypotheses: List[DenialHypothesis] = field(default_factory=list)
@@ -114,13 +133,10 @@ class DenialClassificationResult:
 class DeterministicDenialClassifier:
     """
     Invar 确定性拒绝原因分类器
-    实现规范书第 10 节所确立的非主观推断标准
     """
-
     KNOWN_WAF_HEADERS: Set[str] = {
         "x-waf-event", "x-waf-rule", "x-sucuri-id", "x-firewall",
     }
-
     KNOWN_WAF_SERVER_TOKENS: Set[str] = {
         "waf", "guard", "shield", "aliyun", "tengine", "cloudflare", "imperva",
     }
@@ -129,7 +145,6 @@ class DeterministicDenialClassifier:
     def identify_frontend(cls, obs: DenialObservation) -> FrontendComponent:
         headers = obs.response_headers
         server = headers.get("server", "").lower()
-
         if any(h in headers for h in cls.KNOWN_WAF_HEADERS):
             return FrontendComponent.WAF
         if any(token in server for token in cls.KNOWN_WAF_SERVER_TOKENS):
@@ -141,12 +156,39 @@ class DeterministicDenialClassifier:
         return FrontendComponent.UNKNOWN
 
     @classmethod
+    def _parse_soft_denial(cls, obs: DenialObservation):
+        if obs.status_code != 200 or not obs.body_preview:
+            return None
+        try:
+            payload = _json_loads(obs.body_preview)
+        except Exception:
+            return None
+        if not isinstance(payload, dict):
+            return None
+
+        code = payload.get("code")
+        message = payload.get("message") or payload.get("msg")
+        is_forbidden_code = isinstance(code, int) and (code in {401, 403, 4001, 4003, 4008} or 4000 <= code <= 4999)
+        is_forbidden_msg = isinstance(message, str) and any(
+            w in message.lower()
+            for w in [
+                "forbidden", "unauthorized", "invalid reset password token",
+                "invalid token", "not logged in", "未登录", "无权限"
+            ]
+        )
+        if is_forbidden_code or is_forbidden_msg:
+            return SoftDenial(
+                business_code=code if isinstance(code, int) else None,
+                business_message=message,
+            )
+        return None
+
+    @classmethod
     def classify(cls, obs: DenialObservation) -> DenialClassificationResult:
         frontend = cls.identify_frontend(obs)
         sc = obs.status_code
         headers = obs.response_headers
 
-        # 1. RFC 9110: 405 Method Not Allowed 且提供 Allow 头部
         if sc == 405:
             allow_header = headers.get("allow")
             has_allow = allow_header is not None and bool(allow_header.strip())
@@ -164,7 +206,6 @@ class DeterministicDenialClassifier:
                 raw_observation=obs,
             )
 
-        # 2. 429 Too Many Requests: 明确的频控，绝非业务或 WAF 规则绕过点
         if sc == 429:
             retry_after = headers.get("retry-after", "")
             return DenialClassificationResult(
@@ -181,9 +222,7 @@ class DeterministicDenialClassifier:
                 raw_observation=obs,
             )
 
-        # 3. 403 Forbidden: 严格区分与解耦
         if sc == 403:
-            # 场景 A: 存在明确的 WAF 前端标记
             if frontend == FrontendComponent.WAF:
                 primary = DenialHypothesis(
                     hypothesis_id="DH-403-EDGE-POLICY",
@@ -209,7 +248,6 @@ class DeterministicDenialClassifier:
                     raw_observation=obs,
                 )
 
-            # 场景 B: 无任何边缘特征的纯净 403（不可臆造 WAF）
             primary = DenialHypothesis(
                 hypothesis_id="DH-403-AUTH-OR-POLICY",
                 layer=DenialLayer.AUTHORIZATION,
@@ -234,7 +272,29 @@ class DeterministicDenialClassifier:
                 raw_observation=obs,
             )
 
-        # 4. 其他未知拒绝状态码兜底
+        soft = cls._parse_soft_denial(obs)
+        if soft is not None:
+            return DenialClassificationResult(
+                primary_hypothesis=DenialHypothesis(
+                    hypothesis_id="DH-200-SOFT-ACCESS-POLICY",
+                    layer=DenialLayer.APPLICATION,
+                    category=DenialCategory.ACCESS_POLICY_DENIAL,
+                    confidence=0.80,
+                    evidence_grade=EvidenceGrade.GRADE_B,
+                    supporting_evidence_refs=[
+                        f"HTTP 200",
+                        f"JSON code={soft.business_code}",
+                        f"message={soft.business_message!r}",
+                    ],
+                    rationale=(
+                        f"状态码为 200 但响应体 JSON 携带业务级拒绝码 {soft.business_code}，"
+                        "判定为应用层/业务层的访问策略拒绝（软 403）"
+                    ),
+                ),
+                frontend_component=frontend,
+                raw_observation=obs,
+            )
+
         return DenialClassificationResult(
             primary_hypothesis=DenialHypothesis(
                 hypothesis_id=f"DH-{sc}-UNKNOWN",

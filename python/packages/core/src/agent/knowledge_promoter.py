@@ -1,6 +1,6 @@
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, field
+from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
-
 from harness.finding_models import FindingRecord
 from harness.research_models import ResearchCase
 from harness.verification_gate import PromotionGate
@@ -10,7 +10,7 @@ from harness.verification_gate import PromotionGate
 class KnowledgeCard:
     """
     Invar 经验证不可变安全知识卡片 (Promoted Knowledge Card)
-    从已被独立复核实锤证实的 FindingRecord 与科研假设中升华出的高置信度事实与治理指引
+    兼具内部不可变事实载体与 OpenSSF OpenVEX 工业级标准声明生成能力
     """
     card_id: str
     category: str
@@ -23,15 +23,45 @@ class KnowledgeCard:
     provenance_task: str
     remediation: str
     evidence_summary: str = ""
+    timestamp: str = field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
 
     def to_dict(self) -> Dict[str, Any]:
         return asdict(self)
+
+    def to_openvex_statement(self) -> Dict[str, Any]:
+        """
+        按照 OpenSSF OpenVEX 规范生成标准 VEX Statement 实体
+        规范文档: https://github.com/openvex/spec
+        """
+        is_affected = (self.verification_state == "VERIFIED" and self.severity != "INFO")
+        status = "affected" if is_affected else "not_affected"
+
+        stmt: Dict[str, Any] = {
+            "vulnerability": {
+                "name": self.source_hypothesis or self.card_id,
+                "description": self.title,
+            },
+            "products": [
+                self.provenance_task
+            ],
+            "status": status,
+            "impact_statement": self.claim,
+            "timestamp": self.timestamp,
+        }
+
+        if is_affected:
+            stmt["action_statement"] = self.remediation
+        else:
+            stmt["justification"] = "inline_mitigations_already_exist"
+            stmt["action_statement"] = self.remediation or "保持现有访问控制中间件配置"
+
+        return stmt
 
 
 class KnowledgePromoter:
     """
     Invar 安全知识晋级器 (Security Knowledge Promoter)
-    设立严格的科学证据晋级门禁 (Promotion Gate)，将已裁决且经独立复核的事实升华为标准知识卡片
+    设立严格的科学证据晋级门禁 (Promotion Gate)，将已裁决且经独立复核的事实升华为标准知识卡片与 OpenVEX 凭证
     """
 
     @classmethod
@@ -41,7 +71,7 @@ class KnowledgePromoter:
         gate: Optional[PromotionGate] = None,
     ) -> KnowledgeCard:
         """
-        [Phase M6 新通道] 严格通过 PromotionGate 校验后，将结构化 FindingRecord 晋升为 KnowledgeCard
+        严格通过 PromotionGate 校验后，将结构化 FindingRecord 晋升为 KnowledgeCard
         """
         active_gate = gate or PromotionGate()
         active_gate.assert_promotable(finding)
@@ -71,10 +101,9 @@ class KnowledgePromoter:
     @classmethod
     def promote_case(cls, case: ResearchCase) -> List[KnowledgeCard]:
         """
-        [向后兼容模式] 针对纯 ResearchCase 假设的直升通道
+        针对 ResearchCase 假设的直升通道
         """
         cards: List[KnowledgeCard] = []
-
         for h in case.hypotheses:
             if h.status not in {"VERIFIED", "REFUTED"}:
                 continue
@@ -108,7 +137,6 @@ class KnowledgePromoter:
                         remediation="保持现有确认防护中间件配置",
                         evidence_summary=h.evidence_notes,
                     ))
-
             elif h.hypothesis_id.startswith("H-AUTH"):
                 if h.status == "VERIFIED":
                     cards.append(KnowledgeCard(
@@ -138,7 +166,6 @@ class KnowledgePromoter:
                         remediation="保持现有鉴权中间件配置",
                         evidence_summary=h.evidence_notes,
                     ))
-
             elif h.hypothesis_id.startswith("H-IDOR"):
                 if h.status == "VERIFIED":
                     cards.append(KnowledgeCard(
@@ -168,5 +195,28 @@ class KnowledgePromoter:
                         remediation="保持现有属主访问控制逻辑",
                         evidence_summary=h.evidence_notes,
                     ))
-
         return cards
+
+    @classmethod
+    def export_openvex_document(
+        cls,
+        cards: List[KnowledgeCard],
+        author: str = "Invar Independent Verifier",
+        doc_id: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """
+        将一组 KnowledgeCard 汇聚导出为 100% 合规的 OpenSSF OpenVEX 根文档实体
+        """
+        now_iso = datetime.now(timezone.utc).isoformat()
+        effective_id = doc_id or f"https://invar.local/vex/{datetime.now(timezone.utc).strftime('%Y%m%d%H%M%S')}"
+
+        return {
+            "@context": "https://openvex.dev/ns/v0.2.0",
+            "@id": effective_id,
+            "author": author,
+            "role": "security-researcher",
+            "timestamp": now_iso,
+            "version": 1,
+            "tooling": "Invar System-2 Verification Engine (Phase 5.5)",
+            "statements": [c.to_openvex_statement() for c in cards],
+        }

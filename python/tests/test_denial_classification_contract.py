@@ -1,3 +1,4 @@
+import json
 import unittest
 from harness.denial_models import (
     DenialCategory,
@@ -100,6 +101,84 @@ class DenialClassificationContractTests(unittest.TestCase):
         self.assertIn("frontend_component", res_dict)
         self.assertEqual(res_dict["raw_observation"]["status_code"], 403)
         self.assertEqual(len(res_dict["raw_observation"]["body_hash"]), 16)
+
+    def test_soft_403_code_4003_forbidden_message_is_access_policy_denial(self):
+        """【契约 7】伪 200 + JSON 业务拒绝码 4003/forbidden 必须识别为 ACCESS_POLICY_DENIAL，而非 UNKNOWN"""
+        obs = DenialObservation(
+            status_code=200,
+            response_headers={"content-type": "application/json"},
+            body_preview='{"code": 4003, "message": "forbidden"}',
+        )
+        result = DeterministicDenialClassifier.classify(obs)
+        self.assertEqual(result.primary_hypothesis.category, DenialCategory.ACCESS_POLICY_DENIAL)
+        self.assertEqual(result.primary_hypothesis.layer, DenialLayer.APPLICATION)
+        self.assertNotEqual(result.primary_hypothesis.category, DenialCategory.UNKNOWN)
+
+    def test_soft_403_variants_are_access_policy_denial(self):
+        """【契约 7b】软拒绝的多种业务码/消息形态均归入 ACCESS_POLICY_DENIAL"""
+        variants = [
+            {"code": 403, "message": "Forbidden"},
+            {"code": 4001, "message": "Access denied"},
+            {"code": 4003, "message": "forbidden access"},
+            {"code": 4003, "message": "Forbidden resource"},
+        ]
+        for variant in variants:
+            body = json.dumps(variant)
+            obs = DenialObservation(status_code=200, response_headers={}, body_preview=body)
+            result = DeterministicDenialClassifier.classify(obs)
+            self.assertEqual(
+                result.primary_hypothesis.category, DenialCategory.ACCESS_POLICY_DENIAL,
+                msg=f"failed for variant {variant}",
+            )
+
+    def test_soft_denial_observation_fields_are_populated(self):
+        """【契约 7c】DenialObservation 需承载软拒绝的观测字段"""
+        obs = DenialObservation(
+            status_code=200,
+            response_headers={},
+            body_preview='{"code": 4003, "message": "forbidden"}',
+            is_soft_denial=True,
+            business_code=4003,
+            business_message="forbidden",
+        )
+        self.assertTrue(obs.is_soft_denial)
+        self.assertEqual(obs.business_code, 4003)
+        self.assertEqual(obs.business_message, "forbidden")
+        result = DeterministicDenialClassifier.classify(obs)
+        self.assertEqual(result.primary_hypothesis.category, DenialCategory.ACCESS_POLICY_DENIAL)
+
+    def test_plain_200_without_business_error_is_unknown(self):
+        """【契约 7d】200 且无业务拒绝码时仍落入 UNKNOWN，行为不变"""
+        obs = DenialObservation(
+            status_code=200,
+            response_headers={"content-type": "application/json"},
+            body_preview='{"code": 200, "message": "ok"}',
+        )
+        result = DeterministicDenialClassifier.classify(obs)
+        self.assertEqual(result.primary_hypothesis.category, DenialCategory.UNKNOWN)
+
+    def test_200_non_forbidden_business_code_is_unknown(self):
+        """【契约 7e】200 + 非拒绝业务码（如 5000）不触发软拒绝，落入 UNKNOWN"""
+        obs = DenialObservation(
+            status_code=200,
+            response_headers={"content-type": "application/json"},
+            body_preview='{"code": 5000, "message": "server error"}',
+        )
+        result = DeterministicDenialClassifier.classify(obs)
+        self.assertEqual(result.primary_hypothesis.category, DenialCategory.UNKNOWN)
+
+    def test_soft_403_with_allow_header_is_method_policy_denial(self):
+        """【契约 7f】405 + Allow 头部确定性归类为 METHOD_POLICY_DENIAL（不受软拒绝影响）"""
+        obs = DenialObservation(
+            status_code=405,
+            response_headers={"allow": "GET, HEAD, OPTIONS"},
+            body_preview="405 Not Allowed",
+        )
+        result = DeterministicDenialClassifier.classify(obs)
+        self.assertEqual(result.primary_hypothesis.category, DenialCategory.METHOD_POLICY_DENIAL)
+        self.assertEqual(result.primary_hypothesis.layer, DenialLayer.ROUTER)
+        self.assertEqual(result.primary_hypothesis.evidence_grade, EvidenceGrade.GRADE_A)
+        self.assertIn("Allow: GET, HEAD, OPTIONS", result.primary_hypothesis.supporting_evidence_refs)
 
 
 if __name__ == "__main__":

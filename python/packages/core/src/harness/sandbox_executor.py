@@ -1,8 +1,10 @@
 from concurrent.futures import ThreadPoolExecutor, as_completed
+import re
 from typing import Any, Dict, List, Optional, Tuple
 from urllib.parse import urlparse
 
 from agent.hypothesis_engine import HypothesisEngine, IDOR_KEYWORDS
+from agent.model_provider import OpenAICompatibleProvider
 from agent.research_agent import ResearchAgent
 from harness.adaptive_selector import AdaptiveExperimentSelector
 from harness.config import InvarConfig
@@ -30,6 +32,7 @@ class AdaptiveSandboxExecutor:
         feedback_interpreter: Optional[FeedbackInterpreter] = None,
         mutation_policy: Optional[MutationPolicy] = None,
         research_agent: Optional[ResearchAgent] = None,
+        llm_provider: Optional[OpenAICompatibleProvider] = None,
     ) -> None:
         self.cfg = cfg or InvarConfig()
         self.transport = transport or HttpTransport()
@@ -37,13 +40,36 @@ class AdaptiveSandboxExecutor:
             feedback_interpreter or FeedbackInterpreter()
         )
         self.mutation_policy = mutation_policy or MutationPolicy()
-        self.research_agent = research_agent or ResearchAgent(transport=self.transport)
+        self.llm_provider = llm_provider
+        self.research_agent = research_agent or ResearchAgent(
+            transport=self.transport,
+            llm_provider=self.llm_provider,
+        )
 
     def _build_initial_payload(self, endpoint: EndpointIR) -> Dict[str, object]:
         payload: Dict[str, object] = {}
         for param in endpoint.extracted_params:
             payload[param] = self.mutation_policy.infer_default_value(param)
         return payload
+
+    def _host_from_source_file(self, source_file: str) -> Optional[str]:
+        if not source_file:
+            return None
+        source_file = source_file.replace("\\", "/")
+        for token in source_file.split("/"):
+            if not token or "." not in token:
+                continue
+            if token.endswith(".js") or token.endswith(".json"):
+                continue
+            if re.search(r"[A-Za-z0-9-]+\.[A-Za-z0-9-]+(\.[A-Za-z0-9-]+)+", token):
+                return token
+        return None
+
+    def _base_url_from_source_file(self, endpoint: EndpointIR) -> Optional[str]:
+        host = self._host_from_source_file(endpoint.source_file)
+        if not host:
+            return None
+        return f"https://{host}"
 
     def _build_url(
         self,
@@ -53,12 +79,13 @@ class AdaptiveSandboxExecutor:
         effective_base_url = (
             base_url
             if base_url is not None and base_url.strip()
-            else self.cfg.target_api_base
+            else self._host_from_source_file(endpoint.source_file)
         )
-        return (
-            f"{effective_base_url.rstrip('/')}/"
-            f"{endpoint.path.lstrip('/')}"
-        )
+        if effective_base_url:
+            if not effective_base_url.startswith("http://") and not effective_base_url.startswith("https://"):
+                effective_base_url = f"https://{effective_base_url}"
+            return f"{effective_base_url.rstrip('/')}/{endpoint.path.lstrip('/')}"
+        return f"{self.cfg.target_api_base.rstrip('/')}/{endpoint.path.lstrip('/')}"
 
     def _create_research_case(self, endpoint: EndpointIR) -> ResearchCase:
         case = ResearchCase(
@@ -81,6 +108,7 @@ class AdaptiveSandboxExecutor:
                     statement="Destructive actions must require explicit confirmation",
                 )
             )
+
         is_sensitive = (
             "sensitive-route" in endpoint.tags
             or "admin" in endpoint.tags
@@ -96,6 +124,7 @@ class AdaptiveSandboxExecutor:
                     statement="Sensitive administration routes must enforce authentication",
                 )
             )
+
         has_idor_param = any(
             any(k in p.lower() for k in IDOR_KEYWORDS)
             for p in endpoint.extracted_params
@@ -107,6 +136,7 @@ class AdaptiveSandboxExecutor:
                     statement="Object identifiers must enforce cross-tenant authorization",
                 )
             )
+
         HypothesisEngine.attach_to_case(case)
         return case
 
@@ -120,22 +150,18 @@ class AdaptiveSandboxExecutor:
         last_response: Any,
         last_status_code: int,
     ) -> Tuple[Any, int]:
-        """
-        Invar 拒绝响应自适应研究闭环
-        """
         baseline_obs = DenialObservation(
             status_code=last_status_code,
             response_headers=dict(last_response.headers) if last_response else {},
             body_preview=last_response.text if last_response else "",
         )
-
         classification = DeterministicDenialClassifier.classify(baseline_obs)
         research_case.metadata["denial_classification"] = classification.to_dict()
 
-        # 【关键修复】：动态同步传输层，彻底避免 Mock 解绑引起的 3 分钟网络超时
         self.research_agent.transport = self.transport
+        if self.llm_provider and not self.research_agent.config.llm_provider:
+            self.research_agent.config.llm_provider = self.llm_provider
 
-        # 启动 ResearchAgent 展开全自动化实证调查
         loop_res = self.research_agent.investigate_denial(
             endpoint=endpoint,
             url=url,
@@ -157,7 +183,6 @@ class AdaptiveSandboxExecutor:
                 text = cand_obs.body_preview
 
             last_response = BreakthroughResponseMock()
-
             research_case.record_attempt(
                 payload=applied.payload,
                 status_code=cand_obs.status_code,
@@ -168,6 +193,18 @@ class AdaptiveSandboxExecutor:
             research_case.metadata["evidence_chain"] = loop_res.evidence_chain.to_dict()
 
         return last_response, last_status_code
+
+    def _detect_soft_denial(self, response: Any) -> bool:
+        if response.status_code != 200 or not response.text:
+            return False
+        soft = DeterministicDenialClassifier._parse_soft_denial(
+            DenialObservation(
+                status_code=200,
+                response_headers=dict(response.headers),
+                body_preview=response.text,
+            )
+        )
+        return soft is not None
 
     def _probe_endpoint_with_research_case(
         self,
@@ -213,19 +250,26 @@ class AdaptiveSandboxExecutor:
                     research_case=research_case,
                     evidence_history=[],
                 )
+
             last_response = response
             feedback = self.feedback_interpreter.interpret(
                 response.status_code,
                 response.text,
             )
             contract_passed = (
-                response.status_code in {200, 201, 204}
+                response.status_code in {201, 204}
+                or (
+                    response.status_code == 200
+                    and not self._detect_soft_denial(response)
+                    and not response.text.strip().lower().startswith(("<!doctype html", "<html"))
+                )
                 or (
                     response.status_code in {400, 404}
                     and not feedback.has_required_field_error
                     and not feedback.has_unmarshal_error
                 )
             )
+
             if contract_passed:
                 research_case.record_attempt(
                     payload=payload,
@@ -235,6 +279,7 @@ class AdaptiveSandboxExecutor:
                     mutation_reason="",
                 )
                 break
+
             mutation = self.mutation_policy.mutate(payload, feedback)
             if mutation.changed:
                 research_case.record_attempt(
@@ -246,6 +291,7 @@ class AdaptiveSandboxExecutor:
                 )
                 payload = mutation.payload
                 continue
+
             research_case.record_attempt(
                 payload=payload,
                 status_code=response.status_code,
@@ -281,12 +327,15 @@ class AdaptiveSandboxExecutor:
             )
 
         last_status_code = last_response.status_code if last_response is not None else 0
-
         is_destruct_or_auth = any(
             h.hypothesis_id.startswith(("H-DESTRUCT", "H-AUTH", "H-IDOR"))
             for h in research_case.hypotheses
         )
-        if last_status_code in {403, 405} and (is_destruct_or_auth or bool(research_case.invariants)):
+
+        if (
+            (last_status_code in {403, 405} or self._detect_soft_denial(last_response))
+            and (is_destruct_or_auth or bool(research_case.invariants))
+        ):
             last_response, last_status_code = self._research_denial_loop(
                 endpoint=endpoint,
                 url=url,
@@ -330,6 +379,9 @@ class AdaptiveSandboxExecutor:
                 )
 
         evaluations: List[InvariantEvaluation] = []
+        last_response_text = last_response.text if last_response is not None else ""
+        is_soft = self._detect_soft_denial(last_response) if last_response is not None else False
+
         for inv in research_case.invariants:
             if inv.invariant_type == "idor_boundary":
                 if idor_eval is not None:
@@ -350,17 +402,20 @@ class AdaptiveSandboxExecutor:
                         last_status_code,
                         payload,
                         headers,
+                        response_text=last_response_text,
+                        is_soft_denial=is_soft,
                     )
                 )
 
         HypothesisEngine.resolve_hypotheses(research_case, evaluations)
-
         decision = InvariantEvaluator.evaluate_case(
             case=research_case,
             status_code=last_status_code,
             payload=payload,
             headers=headers,
             evaluations=evaluations,
+            response_text=last_response_text,
+            is_soft_denial=is_soft,
         )
 
         evidence_history = ProbeAttemptEvidenceMapper.to_evidence_records(
@@ -374,7 +429,6 @@ class AdaptiveSandboxExecutor:
             )
 
         final_evidence = evidence_history[-1]
-
         if decision is not None and decision.status == "vulnerable":
             final_evidence.is_anomaly = True
             final_evidence.finding_type = "VULNERABILITY_FOUND"

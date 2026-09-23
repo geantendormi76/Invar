@@ -1,5 +1,4 @@
 from __future__ import annotations
-
 from dataclasses import asdict, dataclass, field
 from datetime import datetime, timezone
 from enum import Enum
@@ -67,10 +66,8 @@ def convert_to_llm(
     4. 自动脱敏并截断响应体中的大型二进制/混淆噪声。
     """
     llm_payloads: List[Dict[str, str]] = []
-
     for msg in messages:
         text = msg.content
-
         # 1. 强制 800 字符切片压缩
         if len(text) > max_slice_chars:
             text = text[:max_slice_chars] + "...[TRUNCATED_AT_800_CHARS]"
@@ -91,7 +88,6 @@ def convert_to_llm(
             "role": role_str,
             "content": formatted_content,
         })
-
     return llm_payloads
 
 
@@ -112,6 +108,8 @@ class ResearchEventType(str, Enum):
     REPLAY_STARTED = "replay_started"
     REPLAY_COMPLETED = "replay_completed"
     STEERING_INJECTED = "steering_injected"
+    LLM_REASONING_STARTED = "llm_reasoning_started"
+    LLM_REASONING_COMPLETED = "llm_reasoning_completed"
     ABORTED = "aborted"
 
 
@@ -119,7 +117,7 @@ class ResearchEventType(str, Enum):
 class ResearchEvent:
     """
     可观测性事件实体 (Push-based Event)
-    支持直接序列化并通过 IPC 流式推送到 Tauri 桌面端与前端界面
+    支持直接序列化并通过 IPC 流式推送到终端或上层调度器
     """
     event_type: ResearchEventType
     payload: Dict[str, Any] = field(default_factory=dict)
@@ -150,7 +148,7 @@ class SteeringMessage:
     """
     content: str
     role: str = "user"
-    source: str = "critic"  # "critic" | "human" | "supervisor"
+    source: str = "critic"
     metadata: Dict[str, Any] = field(default_factory=dict)
 
     def to_research_message(self) -> ResearchMessage:

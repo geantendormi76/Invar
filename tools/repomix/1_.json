@@ -36,7 +36,7 @@
       { "pattern": "python/packages/core/src/**/*" },
       { "pattern": "crates/**/src/**/*" },
       { "pattern": "HANDOFF.md" },
-      { "pattern": "docs/architecture/*.md" }
+      { "pattern": "docs/ai/*.md" }
     ],
 
     "headerText": "本文件是 Invar 跨会话工程交接包 (分层骨架优化版)。核心源码与规范保留完整实现；测试用例与历史脚本采用 Tree-sitter 提取签名骨架以大幅节省 Token。未收录文件通过目录树索引。实际修改前以仓库当前源码与测试为准。",
@@ -67,7 +67,6 @@
     "package.json",
     "pnpm-workspace.yaml",
     "rust-toolchain.toml",
-    ".github/workflows/**/*",
 
     // Rust 引擎
     "crates/**/Cargo.toml",
@@ -84,18 +83,12 @@
     "python/tests/test_*.py",
 
     // 数据流水线与活跃调度工具
-    "scripts/data/pipeline/**/*",
-    "scripts/data/asset/**/*",
+    "scripts/**/*.py",
     "python/scripts/*.py",
-    "scripts/audit/*.py",
 
     // 配置与规格
-    "configs/base/**/*",
-    "configs/profiles/**/*",
-    "configs/schemas/**/*",
-    "configs/registry/**/*",
-    "models/**/MODEL_PASSPORT.json",
-    "docs/architecture/*.md"
+    "configs/**/*",
+    "docs/ai/*.md"
   ],
 
   "ignore": {

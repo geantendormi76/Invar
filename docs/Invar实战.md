@@ -420,7 +420,82 @@ if (Test-Path $tasksFile) {
   * `artifacts\reports\triage_pools_v2.json`（双轨比对与高危池收敛验收战报）
   * `artifacts/reports/targeted_research_tasks_78.json`（锁定 78 个核心靶心）
 
-#### 5.2 闭环沙箱探测、不变量裁决与知识卡片晋级（待解冻后执行）
-```powershell
 
+#### 5.2 闭环沙箱探测、不变量裁决与知识卡片晋级（System-2 实证）
+
+将装配好的 78 个核心靶心（或分优先级 P0 批次）送入 System-2 自适应沙箱，通过真实发包、报错自愈变异、软拒绝识别与 SPA 前端回退过滤，完成确定性实证与战报投影。
+
+##### 5.2.1 P0 级核心靶点极速冒烟验证（基线实证）
+
+在全面测试前，先针对最敏感的 12 个 P0 靶点进行快速验证，确保子域宿主自动路由准确、物理发包直连畅通（耗时应在 150ms ~ 8s 内）。
+
+```powershell
+Set-Location -Path "C:\dev\Invar"
+
+$tasksFile = "artifacts\reports\targeted_research_tasks_78.json"
+$reportInput = "tmp\ikuai8_endpoints_report.json"
+$p0OutputDir = "artifacts\reports\targeted_audit_p0_final"
+
+Write-Host "==================================================" -ForegroundColor Cyan
+Write-Host " 🎯 [5.2.1] 正在执行 P0 级双高核心靶标实证探测" -ForegroundColor Cyan
+Write-Host "==================================================" -ForegroundColor Cyan
+
+# 驱动 run_targeted_audit.py，指定筛选 P0
+uv run --project python python python/scripts/run_targeted_audit.py `
+    --tasks $tasksFile `
+    --report-input $reportInput `
+    --output-dir $p0OutputDir `
+    --priority P0 `
+    --timeout 10
+
+Write-Host "[✓] P0 靶点实证审计完成，报告目录: $p0OutputDir" -ForegroundColor Green
+```
+
+##### 5.2.2 全量 78 核心任务纵深实证与全域覆盖
+
+当 P0 冒烟基线健康后，拉满全量 78 个任务（含 P1 破坏性变更与 IDOR 候选、P2 规则保底防护、P3 全域探索面），进行全业务子系统的大规模实证。
+
+```powershell
+$allOutputDir = "artifacts\reports\targeted_audit_all_78"
+
+Write-Host "`n==================================================" -ForegroundColor Cyan
+Write-Host " 🚀 [5.2.2] 正在启动全量 78 靶向任务纵深实证审计" -ForegroundColor Cyan
+Write-Host "==================================================" -ForegroundColor Cyan
+
+# priority 设置为 ALL，全量穿透
+uv run --project python python python/scripts/run_targeted_audit.py `
+    --tasks $tasksFile `
+    --report-input $reportInput `
+    --output-dir $allOutputDir `
+    --priority ALL `
+    --timeout 10
+
+# 验收输出的战报交付物
+if (Test-Path "$allOutputDir\REPORT.md") {
+    Write-Host "`n==================================================" -ForegroundColor Cyan
+    Write-Host " 📊 靶向实证全量审计最终战报概况" -ForegroundColor Cyan
+    Write-Host "==================================================" -ForegroundColor Cyan
+    Get-Content "$allOutputDir\REPORT.md" | Select-String -Pattern "## 2. 覆盖度核心指标", "## 3. 漏洞发现总览", "实锤确认" -Context 0, 5
+    Write-Host "`n[✓] 5 大权威交付物已全部原子化落盘至: $allOutputDir" -ForegroundColor Green
+    Write-Host "==================================================`n" -ForegroundColor Cyan
+}
+```
+
+##### 5.2.3 必须恪守的底层三大防御与避坑铁律（Ground Truth）
+
+为了在其他新靶场复现时取得相同的高效、零误报战果，以下三大底层机制必须保持常驻：
+1. **物理网络代理隔离（阻断 5.5s / 66s 幽灵挂死）**：
+   `HttpTransport` 内部必须显式清理 `HTTP_PROXY` / `HTTPS_PROXY` 并设置 `NO_PROXY="*"`，严禁让请求走本地系统代理（如 Clash / v2ray 导致的握手重试超时），确保 API 物理往返在毫秒级（150ms ~ 700ms）。
+2. **业务级软拒绝识别（消灭伪 200 业务报错误报）**：
+   后端常用 HTTP 200 外壳承载 `{"code": 4003, "message": "forbidden"}`。`InvariantEvaluator` 与 `DenialClassifier` 必须能从响应体解析 40xx 业务码，将其判定为 `CONFIRMED`（安全底线已拦截），严禁因状态码为 200 而误判为未授权穿透。
+3. **前端单页应用 SPA 兜底 HTML 过滤（消灭伪 200 页面回退误报）**：
+   当 Nginx `try_files` 对不存在的 API 路由无条件回显 `index.html`（`<!DOCTYPE html...`）时，系统必须在不变量评估器中直接识别为“非真实后端 API 响应”，坚决禁止将其标记为 `VULNERABLE`。
+
+---
+* **标准化交付物（5 大权威事实战报）**：
+  * `findings.json`：全量机器可读、包含根因指纹与物理发包证据的结构化数据（供下游 CI/CD 与工单系统消费）；
+  * `REPORT.md`：面向安全决策层的战报总览（含执行上下文血统、客观加权覆盖率、漏洞裁决分布）；
+  * `FINDINGS-DETAIL.md`：面向一线研发与审计专家的技术细节（包含调用链路跟踪、原始 HTTP 请求/响应快照、修复加固指导）；
+  * `NEEDS-VALIDATION.md`：因缺少双主体凭证或前置条件不足而阻塞的攻坚清单（严禁标注假定严重度）；
+  * `coverage-summary.md`：按子系统和攻击面展开的 48 个覆盖单元全景明细表。
 ```

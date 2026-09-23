@@ -36,6 +36,7 @@ class TestHttpTransport(unittest.TestCase):
             "https://fixture.invalid/api/test",
             headers=headers,
             timeout=5,
+            verify=False,
             json=payload,
         )
 
@@ -67,6 +68,7 @@ class TestHttpTransport(unittest.TestCase):
             "https://fixture.invalid/api/test",
             headers=headers,
             timeout=5,
+            verify=False,
             params=payload,
         )
 

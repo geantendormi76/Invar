@@ -46,7 +46,11 @@ class ResearchTaskAdapter:
 
         if registry is not None:
             if endpoint_id and registry.contains(endpoint_id):
-                return registry.get(endpoint_id)
+                import copy
+                ep = copy.copy(registry.get(endpoint_id))
+                if "source_file" in task and task["source_file"]:
+                    ep.source_file = task["source_file"]
+                return ep
             raise EndpointNotFoundError(
                 f"Referenced endpoint '{endpoint_id}' does not exist in canonical EndpointRegistry"
             )
@@ -58,6 +62,9 @@ class ResearchTaskAdapter:
             method=method,
             path=path,
             endpoint_id=endpoint_id or f"{method}:{path}",
+            source_file=str(task.get("source_file") or ""),
+            extracted_params=list(task.get("extracted_params") or []),
+            tags=list(task.get("tags") or []),
         )
 
     @staticmethod
