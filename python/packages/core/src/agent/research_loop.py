@@ -325,6 +325,7 @@ def run_research_loop(
         _emit(ResearchEventType.TURN_END, {"turn": turn_index, "outcome": "no_penetration"})
 
     # 阶段二：大模型认知反思破局 (LLM Cognitive Reflection Step)
+    llm_failed = False
     if (
         not breakthrough
         and (signal is None or not signal.is_aborted)
@@ -357,9 +358,18 @@ def run_research_loop(
                 },
             ]
             llm_res = config.llm_provider.generate_structured_json(llm_prompt)
+            if not isinstance(llm_res, dict):
+                raise ValueError("LLM action must be a JSON object")
             inferred_headers = llm_res.get("headers") or {}
             inferred_payload = llm_res.get("payload") or {}
-            llm_rationale = llm_res.get("rationale") or "LLM-inferred custom mutation"
+            llm_rationale = llm_res.get("rationale")
+            if not isinstance(llm_rationale, str):
+                raise ValueError("LLM action rationale must be a string")
+            if not isinstance(inferred_headers, dict):
+                raise ValueError("LLM action headers must be an object")
+            if not isinstance(inferred_payload, dict):
+                raise ValueError("LLM action payload must be an object")
+            context.metadata["llm_terminal_status"] = "completed"
             print(f"    [+] 🧠 大模型反思完成！建议理据: {llm_rationale!r}")
 
             _emit(ResearchEventType.LLM_REASONING_COMPLETED, {
@@ -425,6 +435,13 @@ def run_research_loop(
                 )
                 context.evidence_chain = evidence_chain
         except Exception as e:
+            llm_failed = True
+            context.metadata["llm_terminal_status"] = "failed"
+            context.metadata["llm_error"] = str(e)
+            _emit(ResearchEventType.LLM_REASONING_FAILED, {
+                "error_type": type(e).__name__,
+                "message": str(e),
+            })
             print(f"    [-] ⚠️ 大模型反思阶段异常: {e}")
 
     if config.follow_up_queue:
@@ -432,7 +449,7 @@ def run_research_loop(
         context.messages.append(follow_up_msg.to_research_message())
 
     final_verdict = EvidenceVerdict.CANDIDATE if breakthrough else EvidenceVerdict.REJECTED
-    if signal is not None and signal.is_aborted:
+    if llm_failed or (signal is not None and signal.is_aborted):
         final_verdict = EvidenceVerdict.INCONCLUSIVE
 
     _emit(ResearchEventType.LOOP_END, {

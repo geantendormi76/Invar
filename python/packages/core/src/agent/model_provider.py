@@ -1,29 +1,26 @@
 from __future__ import annotations
-
 import json
 import os
 import re
 from typing import Any, Dict, List, Optional
+from urllib.parse import urlparse
 import requests
-
 
 class ModelProviderError(RuntimeError):
     """大模型提供者调用或解析异常"""
     pass
 
-
 class OpenAICompatibleProvider:
     """
     通用 OpenAI 兼容协议大模型提供者
-    无缝适配本地 llama-server (127.0.0.1:8080) 以及任何标准兼容端点
+    适配本地 llama-server 以及任何标准兼容端点
     """
-
     def __init__(
         self,
         base_url: Optional[str] = None,
         api_key: Optional[str] = None,
         model: Optional[str] = None,
-        timeout: int = 30,
+        timeout: int = 120,
         session: Optional[requests.Session] = None,
     ):
         self.base_url = (
@@ -43,19 +40,23 @@ class OpenAICompatibleProvider:
             or os.getenv("INVAR_LLM_MODEL")
             or "default"
         )
-        self.timeout = timeout
+        self.timeout = int(os.getenv("INVAR_LLM_TIMEOUT") or timeout)
         self.session = session or requests.Session()
+        if session is None and urlparse(self.base_url).hostname in {
+            "127.0.0.1",
+            "localhost",
+            "::1",
+        }:
+            self.session.trust_env = False
 
     def chat_completion(
         self,
         messages: List[Dict[str, str]],
         temperature: float = 0.2,
-        max_tokens: int = 1024,
+        max_tokens: int = 4096,
         response_format: Optional[Dict[str, str]] = None,
+        enable_thinking: Optional[bool] = None,
     ) -> Dict[str, Any]:
-        """
-        发起标准 /chat/completions 调用并返回标准响应字典
-        """
         url = f"{self.base_url}/chat/completions"
         headers = {
             "Content-Type": "application/json",
@@ -69,9 +70,18 @@ class OpenAICompatibleProvider:
         }
         if response_format:
             payload["response_format"] = response_format
+        if enable_thinking is not None:
+            payload["chat_template_kwargs"] = {
+                "enable_thinking": enable_thinking,
+            }
 
         try:
-            resp = self.session.post(url, json=payload, headers=headers, timeout=self.timeout)
+            resp = self.session.post(
+                url,
+                json=payload,
+                headers=headers,
+                timeout=(5, self.timeout),
+            )
             if resp.status_code != 200:
                 raise ModelProviderError(
                     f"LLM API returned non-200 status code [{resp.status_code}]: {resp.text[:300]}"
@@ -91,21 +101,29 @@ class OpenAICompatibleProvider:
         self,
         messages: List[Dict[str, str]],
         temperature: float = 0.1,
-        max_tokens: int = 1024,
+        max_tokens: int = 256,
     ) -> Dict[str, Any]:
-        """
-        调用模型并自愈提取纯净 JSON 对象
-        自动过滤大模型返回的思维链思考过程 (<thought>...</thought>) 与 Markdown 代码块标记
-        """
         raw_resp = self.chat_completion(
             messages=messages,
             temperature=temperature,
             max_tokens=max_tokens,
+            response_format={"type": "json_object"},
+            enable_thinking=False,
         )
         try:
-            content = raw_resp["choices"][0]["message"]["content"]
+            choice = raw_resp["choices"][0]
+            finish_reason = choice.get("finish_reason")
+            if finish_reason != "stop":
+                raise ModelProviderError(
+                    f"LLM output incomplete: finish_reason={finish_reason}"
+                )
+            msg = choice.get("message", {})
+            content = msg.get("content") or ""
         except (KeyError, IndexError):
-            raise ModelProviderError("Malformed LLM response: missing choices[0].message.content")
+            raise ModelProviderError("Malformed LLM response: missing choices[0].message")
+
+        if not content:
+            raise ModelProviderError("LLM returned no final content")
 
         # 1. 过滤思维链标记
         clean_text = re.sub(r"<thought>.*?</thought>", "", content, flags=re.DOTALL)
@@ -113,20 +131,21 @@ class OpenAICompatibleProvider:
 
         # 2. 剥离 Markdown 代码块 ```json ... ```
         json_match = re.search(r"```(?:json)?\s*(\{.*?\})\s*```", clean_text, flags=re.DOTALL)
-        if json_match:
-            candidate_json = json_match.group(1)
-        else:
-            # 尝试截取最外层的 { 和 }
-            first_brace = clean_text.find("{")
-            last_brace = clean_text.rfind("}")
-            if first_brace != -1 and last_brace != -1 and last_brace > first_brace:
-                candidate_json = clean_text[first_brace:last_brace + 1]
-            else:
-                candidate_json = clean_text
-
         try:
-            return json.loads(candidate_json)
+            if json_match:
+                decoded = json.loads(json_match.group(1))
+            else:
+                first_brace = clean_text.find("{")
+                if first_brace == -1:
+                    raise ModelProviderError("LLM output contains no JSON object")
+                decoded, _ = json.JSONDecoder().raw_decode(
+                    clean_text[first_brace:]
+                )
         except json.JSONDecodeError as exc:
             raise ModelProviderError(
                 f"Failed to extract valid JSON from LLM output: {exc}. Cleaned content was: {clean_text[:200]}"
             ) from exc
+
+        if not isinstance(decoded, dict):
+            raise ModelProviderError("LLM structured output must be a JSON object")
+        return decoded

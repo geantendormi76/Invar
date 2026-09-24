@@ -110,6 +110,7 @@ class ResearchEventType(str, Enum):
     STEERING_INJECTED = "steering_injected"
     LLM_REASONING_STARTED = "llm_reasoning_started"
     LLM_REASONING_COMPLETED = "llm_reasoning_completed"
+    LLM_REASONING_FAILED = "llm_reasoning_failed"
     ABORTED = "aborted"
 
 

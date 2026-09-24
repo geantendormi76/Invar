@@ -1,5 +1,6 @@
 import argparse
 from collections import Counter
+import hashlib
 import json
 from pathlib import Path
 import time
@@ -16,7 +17,20 @@ from agent.knowledge_promoter import KnowledgeCard, KnowledgePromoter
 from agent.model_provider import OpenAICompatibleProvider
 from harness.candidate_models import Candidate, CandidateFingerprint, CanonicalFactors, TraceStep
 from harness.config import InvarConfig
-from harness.coverage_ledger import CoverageLedger, CoverageStatus, CoverageUnit
+from harness.audit_checkpoint import (
+    AuditCheckpoint,
+    CheckpointError,
+    compute_plan_digest,
+    recover_trace_progress,
+    repair_trace_tail,
+    task_key,
+)
+from harness.coverage_ledger import (
+    CoverageLedger,
+    CoverageStatus,
+    CoverageUnit,
+    UnresolvedFact,
+)
 from harness.exporter import EndpointExporter
 from harness.finding_models import ExecutionRecord, FindingRecord, Remediation, Severity, Verdict
 from harness.models import EndpointIR, EndpointRegistry
@@ -75,7 +89,12 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--enable-llm",
         action="store_true",
-        help="正式激活本地 8080 端口的消融模型 (Ornith-1.5-9B) 进行 CoT 认知反思破局",
+        help="激活 INVAR_LLM_BASE_URL 指向的本地模型进行结构化反思",
+    )
+    parser.add_argument(
+        "--restart",
+        action="store_true",
+        help="放弃输出目录中的既有断点并从第 1 项重新开始",
     )
     return parser.parse_args()
 
@@ -86,6 +105,32 @@ def load_registry(report_path: Path) -> EndpointRegistry:
         endpoints = EndpointExporter.from_json_file(report_path)
         registry.register_all(endpoints)
     return registry
+
+
+def file_sha256(path: Path) -> Optional[str]:
+    if not path.exists():
+        return None
+    digest = hashlib.sha256()
+    with path.open("rb") as stream:
+        for chunk in iter(lambda: stream.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def make_executing_run(run_id: str) -> ResearchRun:
+    run = ResearchRun(
+        run_id=run_id,
+        target_root="ikuai8.com",
+        scope=ResearchScope(target_domain="ikuai8.com"),
+        profile=RunProfile(name="targeted_combat_audit"),
+        execution_policy=ExecutionPolicy(allow_dynamic_testing=True),
+        status=RunStatus.INIT,
+    )
+    run.transition_to(RunStatus.SCOPE_VERIFIED)
+    run.transition_to(RunStatus.CONTEXT_READY)
+    run.transition_to(RunStatus.PLAN_READY)
+    run.transition_to(RunStatus.EXECUTING)
+    return run
 
 
 def main() -> int:
@@ -117,27 +162,161 @@ def main() -> int:
     # 3. 初始化本地大模型提供者 (Phase 5.4 智能体点火)
     llm_provider = None
     if args.enable_llm:
-        print("[*] 🧠 已激活本地 8080 模型提供者: Ornith-1.5-9B-Abliterated (CoT 认知反思已就绪)")
         llm_provider = OpenAICompatibleProvider(
-            base_url="http://127.0.0.1:8080/v1",
             api_key="sk-local-dev-key",
-            model="Ornith-1.5-9B-Abliterated-IQ3_M",
-            timeout=30,
+            timeout=120,
+        )
+        print(
+            "[*] 🧠 已激活本地模型提供者: "
+            f"{llm_provider.model} ({llm_provider.base_url})"
         )
 
     print("[*] 开始驱动动态沙箱执行中枢...\n")
 
-    # 4. 初始化权威运行实体与账本
-    run_id = f"RUN-TARGETED-{int(time.time())}"
-    run = ResearchRun(
-        run_id=run_id,
-        target_root="ikuai8.com",
-        scope=ResearchScope(target_domain="ikuai8.com"),
-        profile=RunProfile(name="targeted_combat_audit"),
-        execution_policy=ExecutionPolicy(allow_dynamic_testing=True),
-        status=RunStatus.INIT,
-    )
+    # 4. 初始化或恢复权威运行实体、账本与逐任务断点
     execution_log_path = output_dir / "execution.jsonl"
+    checkpoint_path = output_dir / "audit_checkpoint.json"
+    plan_options = {
+        "priority": args.priority,
+        "max_tasks": args.max_tasks,
+        "timeout": args.timeout,
+        "base_url": args.base_url,
+        "report_input": str(args.report_input.resolve()),
+        "report_input_sha256": file_sha256(args.report_input.resolve()),
+        "llm_enabled": llm_provider is not None,
+        "llm_base_url": llm_provider.base_url if llm_provider else None,
+        "llm_model": llm_provider.model if llm_provider else None,
+        "llm_timeout": llm_provider.timeout if llm_provider else None,
+    }
+    plan_digest = compute_plan_digest(filtered_tasks, plan_options)
+    planned_task_keys = [
+        task_key(task, index)
+        for index, task in enumerate(filtered_tasks, 1)
+    ]
+    if len(planned_task_keys) != len(set(planned_task_keys)):
+        print("[!] 任务集中存在重复 task_id，无法建立无歧义断点")
+        return 2
+
+    if args.restart:
+        checkpoint_path.unlink(missing_ok=True)
+        execution_log_path.unlink(missing_ok=True)
+        print("[*] 已按 --restart 放弃既有断点，将从第 1 项重新执行")
+
+    if repair_trace_tail(execution_log_path):
+        print("[*] 已修复 execution.jsonl 的中断尾记录，保留此前完整任务")
+
+    trace_exists = (
+        execution_log_path.exists()
+        and execution_log_path.stat().st_size > 0
+    )
+
+    try:
+        if checkpoint_path.exists():
+            checkpoint = AuditCheckpoint.load(checkpoint_path)
+            if checkpoint.plan_digest != plan_digest:
+                raise CheckpointError(
+                    "断点对应的任务集或关键参数已改变；如确认重跑，请显式传入 --restart"
+                )
+            if checkpoint.total_tasks != total_tasks:
+                raise CheckpointError(
+                    "断点任务总数与当前计划不一致: "
+                    f"{checkpoint.total_tasks} != {total_tasks}"
+                )
+
+            run = checkpoint.run
+            ledger = checkpoint.ledger
+            findings = checkpoint.findings
+
+            if checkpoint.completed_task_keys and not trace_exists:
+                raise CheckpointError(
+                    "断点声明已有完成任务，但 execution.jsonl 缺失或为空"
+                )
+
+            if trace_exists:
+                progress = recover_trace_progress(
+                    execution_log_path,
+                    filtered_tasks,
+                    expected_total=total_tasks,
+                )
+                if progress is None or progress.run_id != run.run_id:
+                    raise CheckpointError(
+                        "execution.jsonl 与 checkpoint 的 run_id 不一致"
+                    )
+                checkpoint_keys = set(checkpoint.completed_task_keys)
+                trace_keys = set(progress.completed_task_keys)
+                if not checkpoint_keys.issubset(trace_keys):
+                    raise CheckpointError(
+                        "checkpoint 领先于 execution.jsonl，无法证明已完成任务的物理证据"
+                    )
+
+                # trace 先于 checkpoint 落盘时，从完整的 trace 记录恢复崩溃窗口。
+                if trace_keys != checkpoint_keys:
+                    checkpoint.completed_task_keys = progress.completed_task_keys
+                    checkpoint.last_completed_index = progress.last_completed_index
+                    ledger.units.update(progress.coverage_units)
+                    known_findings = {f.finding_id: f for f in findings}
+                    for finding in progress.findings:
+                        known_findings[finding.finding_id] = finding
+                    findings[:] = list(known_findings.values())
+                    checkpoint.save_atomic(checkpoint_path)
+
+            if (
+                checkpoint.status in {"completed", "blocked"}
+                and len(checkpoint.completed_task_keys) == total_tasks
+            ):
+                print(
+                    "[*] 该执行计划已经结束，无需重复发包: "
+                    f"status={checkpoint.status}, run_id={run.run_id}"
+                )
+                return 0 if checkpoint.status == "completed" else 1
+        elif trace_exists:
+            # 兼容升级前已经逐项落盘、但尚无 checkpoint 的中断运行。
+            progress = recover_trace_progress(
+                execution_log_path,
+                filtered_tasks,
+                expected_total=total_tasks,
+            )
+            if progress is None:
+                raise CheckpointError("无法从非空 execution.jsonl 恢复执行进度")
+            run = make_executing_run(progress.run_id)
+            ledger = CoverageLedger(run_id=run.run_id)
+            ledger.units.update(progress.coverage_units)
+            findings = list(progress.findings)
+            checkpoint = AuditCheckpoint(
+                run=run,
+                ledger=ledger,
+                findings=findings,
+                plan_digest=plan_digest,
+                total_tasks=total_tasks,
+                completed_task_keys=progress.completed_task_keys,
+                last_completed_index=progress.last_completed_index,
+            )
+            checkpoint.save_atomic(checkpoint_path)
+        else:
+            run_id = f"RUN-TARGETED-{time.time_ns()}"
+            run = make_executing_run(run_id)
+            ledger = CoverageLedger(run_id=run_id)
+            findings: List[FindingRecord] = []
+            checkpoint = AuditCheckpoint(
+                run=run,
+                ledger=ledger,
+                findings=findings,
+                plan_digest=plan_digest,
+                total_tasks=total_tasks,
+            )
+            checkpoint.save_atomic(checkpoint_path)
+    except CheckpointError as exc:
+        print(f"[!] 断点恢复失败: {exc}")
+        return 2
+
+    run_id = run.run_id
+    completed_task_keys = set(checkpoint.completed_task_keys)
+    if completed_task_keys:
+        print(
+            f"[*] 已恢复运行 {run_id}: "
+            f"完成 {len(completed_task_keys)}/{total_tasks}，"
+            "将自动跳过已落盘任务"
+        )
 
     trace_recorder = ExecutionTraceRecorder(
         run_id=run_id,
@@ -149,15 +328,8 @@ def main() -> int:
             if llm_provider is not None
             else None
         ),
+        append=trace_exists,
     )
-
-    run.transition_to(RunStatus.SCOPE_VERIFIED)
-    run.transition_to(RunStatus.CONTEXT_READY)
-    run.transition_to(RunStatus.PLAN_READY)
-    run.transition_to(RunStatus.EXECUTING)
-
-    ledger = CoverageLedger(run_id=run_id)
-    findings: List[FindingRecord] = []
 
     # 5. 配置沙箱执行器
     cfg = InvarConfig(request_timeout=args.timeout)
@@ -175,6 +347,14 @@ def main() -> int:
         path = task.get("path", "/")
         method = task.get("method", "GET").upper()
         priority = task.get("priority", "P1")
+        current_task_key = planned_task_keys[idx - 1]
+
+        if current_task_key in completed_task_keys:
+            print(
+                f"--- [{idx}/{total_tasks}] ({priority}) {method} {path} "
+                "[断点已完成，跳过] ---"
+            )
+            continue
 
         # 注册覆盖单元
         if not ledger.contains(cov_id):
@@ -200,7 +380,7 @@ def main() -> int:
 
         print(f"--- [{idx}/{total_tasks}] ({priority}) {method} {path} ---")
         trace_recorder.begin_task(
-            index=idx + 1,
+            index=idx,
             task=task,
             endpoint=endpoint,
         )
@@ -220,7 +400,7 @@ def main() -> int:
             case = exec_res.research_case
             decision = case.decision
 
-        except Exception as exc:
+        except BaseException as exc:
             elapsed_ms = (
                 time.perf_counter() - t0
             ) * 1000.0
@@ -232,12 +412,14 @@ def main() -> int:
                 elapsed_ms=elapsed_ms,
                 coverage_unit=ledger.get_unit(cov_id),
             )
-
+            unsubscribe_trace()
+            trace_recorder.close()
             raise
         status_desc = decision.status if decision else "inconclusive"
         print(f"    └─ 决策: [{status_desc.upper()}] (耗时: {elapsed_ms:.1f}ms, 尝试: {len(case.attempts)} 次)")
 
         # 漏洞确权分支
+        task_finding: Optional[FindingRecord] = None
         if decision and decision.status == "vulnerable":
             print(f"    🚨 [VULNERABLE] 安全底线被击穿: {decision.rationale}")
             factors = CanonicalFactors(
@@ -295,14 +477,38 @@ def main() -> int:
                 ),
             )
             findings.append(finding)
+            task_finding = finding
             if unit.status == CoverageStatus.IN_PROGRESS:
                 unit.candidate_fingerprints.append(fp.value)
                 unit.transition_to(CoverageStatus.CANDIDATE)
         else:
             if unit.status == CoverageStatus.IN_PROGRESS:
-                unit.reviewed_paths.append(path)
-                unit.check_refs.append(f"CHK-{attack_class.upper()}")
-                unit.transition_to(CoverageStatus.COVERED)
+                if case.metadata.get("llm_terminal_status") == "failed":
+                    unresolved_description = (
+                        "本地大模型反思未完成: "
+                        f"{case.metadata.get('llm_error', 'unknown error')}"
+                    )
+                elif decision is None:
+                    unresolved_description = "任务未形成可验证的安全裁决"
+                elif decision.status == "inconclusive":
+                    unresolved_description = (
+                        f"任务裁决仍不确定: {decision.rationale}"
+                    )
+                else:
+                    unresolved_description = None
+
+                if unresolved_description is not None:
+                    unit.unresolved.append(
+                        UnresolvedFact(
+                            fact_id=f"UNRESOLVED-{task_id}",
+                            description=unresolved_description,
+                        )
+                    )
+                    unit.transition_to(CoverageStatus.BLOCKED)
+                else:
+                    unit.reviewed_paths.append(path)
+                    unit.check_refs.append(f"CHK-{attack_class.upper()}")
+                    unit.transition_to(CoverageStatus.COVERED)
 
 
         trace_recorder.finalize_task(
@@ -311,13 +517,34 @@ def main() -> int:
             execution_result=exec_res,
             coverage_unit=ledger.get_unit(cov_id),
             elapsed_ms=elapsed_ms,
+            finding=task_finding,
         )
+
+        # execution.jsonl 已 fsync 后再推进原子断点；崩溃窗口可由 trace 自愈。
+        checkpoint.completed_task_keys.append(current_task_key)
+        checkpoint.last_completed_index = idx
+        checkpoint.status = "executing"
+        checkpoint.save_atomic(checkpoint_path)
+        completed_task_keys.add(current_task_key)
+
+    unsubscribe_trace()
+    trace_recorder.close()
 
     # 7. 状态机推进
     run.transition_to(RunStatus.EVIDENCE_COLLECTED)
     run.transition_to(RunStatus.EVALUATED)
-    run.transition_to(RunStatus.REPORT_READY)
-    run.transition_to(RunStatus.COMPLETED)
+    ledger.validate()
+    pre_report_metrics = ledger.compute_metrics()
+    if pre_report_metrics["blocked_units"]:
+        run.transition_to(
+            RunStatus.BLOCKED,
+            reason=(
+                f"{pre_report_metrics['blocked_units']} 个覆盖单元因证据未闭环而受阻"
+            ),
+        )
+    else:
+        run.transition_to(RunStatus.REPORT_READY)
+        run.transition_to(RunStatus.COMPLETED)
 
     # 8. Phase 5.5: 独立复核、科学晋级门禁与 OpenVEX 黄金标准导出
     verifier = IndependentVerifier(verifier_id="invar-independent-verifier-prime")
@@ -353,7 +580,13 @@ def main() -> int:
     print(f"[*] 发现漏洞: {len(findings)} 个")
     print(f"[*] OpenVEX 声明生成: {len(promoted_cards)} 条")
 
-    return 0
+    checkpoint.status = (
+        "blocked" if run.status == RunStatus.BLOCKED else "completed"
+    )
+    checkpoint.save_atomic(checkpoint_path)
+    print(f"[*] 断点状态已固化: {checkpoint_path}")
+
+    return 1 if run.status == RunStatus.BLOCKED else 0
 
 
 if __name__ == "__main__":

@@ -4,6 +4,7 @@ from collections import Counter
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 import json
+import os
 import re
 from pathlib import Path
 from threading import Lock
@@ -12,6 +13,7 @@ from typing import Any, Dict, List, Optional
 from agent.loop_types import ResearchEvent, ResearchEventType
 from harness.coverage_ledger import CoverageUnit
 from harness.denial_models import DenialObservation, DeterministicDenialClassifier
+from harness.finding_models import FindingRecord
 from harness.models import EndpointIR
 from harness.research_models import ResearchExecutionResult
 
@@ -187,6 +189,7 @@ class ExecutionTraceRecorder:
         *,
         llm_enabled: bool,
         llm_model: Optional[str] = None,
+        append: bool = False,
     ) -> None:
         self.run_id = run_id
         self.output_path = Path(output_path)
@@ -199,9 +202,16 @@ class ExecutionTraceRecorder:
         self._lock = Lock()
         self._closed = False
 
-        # 每次运行从空文件开始，防止旧 run 混入当前 run。
+        if append and self.output_path.exists() and self.output_path.stat().st_size:
+            with self.output_path.open("rb") as existing:
+                existing.seek(-1, 2)
+                if existing.read(1) != b"\n":
+                    raise RuntimeError(
+                        "Cannot append to execution trace without a trailing newline"
+                    )
+
         self._stream = self.output_path.open(
-            "w",
+            "a" if append else "w",
             encoding="utf-8",
             newline="\n",
         )
@@ -308,6 +318,12 @@ class ExecutionTraceRecorder:
             == ResearchEventType.LLM_REASONING_COMPLETED.value
         ]
 
+        failed = [
+            e for e in events
+            if e.get("event_type")
+            == ResearchEventType.LLM_REASONING_FAILED.value
+        ]
+
         rationales: List[str] = []
         turns_prior: List[int] = []
 
@@ -323,11 +339,22 @@ class ExecutionTraceRecorder:
             if rationale:
                 rationales.append(str(rationale))
 
+        if failed:
+            terminal_status = "failed"
+        elif completed:
+            terminal_status = "completed"
+        elif started:
+            terminal_status = "started"
+        else:
+            terminal_status = "not_invoked"
+
         return {
             "enabled": self.llm_enabled,
-            "invoked": bool(started or completed),
+            "invoked": bool(started or completed or failed),
             "started_count": len(started),
             "completed_count": len(completed),
+            "failed_count": len(failed),
+            "terminal_status": terminal_status,
             "model": self.llm_model,
             "turns_prior": sorted(set(turns_prior)),
             "rationales": rationales,
@@ -398,6 +425,7 @@ class ExecutionTraceRecorder:
         execution_result: ResearchExecutionResult,
         coverage_unit: Optional[CoverageUnit],
         elapsed_ms: float,
+        finding: Optional[FindingRecord] = None,
     ) -> Dict[str, Any]:
         with self._lock:
             if self._closed:
@@ -494,6 +522,12 @@ class ExecutionTraceRecorder:
                     else None
                 ),
 
+                "finding": (
+                    sanitize(finding.to_dict())
+                    if finding is not None
+                    else None
+                ),
+
                 "llm": sanitize(llm_info),
 
                 "mutation": {
@@ -521,6 +555,7 @@ class ExecutionTraceRecorder:
                 + "\n"
             )
             self._stream.flush()
+            os.fsync(self._stream.fileno())
 
             self._active = None
 
@@ -580,6 +615,8 @@ class ExecutionTraceRecorder:
                     "invoked": False,
                     "started_count": 0,
                     "completed_count": 0,
+                    "failed_count": 0,
+                    "terminal_status": "not_invoked",
                     "model": self.llm_model,
                     "turns_prior": [],
                     "rationales": [],
@@ -600,6 +637,7 @@ class ExecutionTraceRecorder:
                 + "\n"
             )
             self._stream.flush()
+            os.fsync(self._stream.fileno())
 
             self._active = None
             return record

@@ -110,6 +110,42 @@ class ResearchLoopLLMContractTests(unittest.TestCase):
             "secret_token_123",
         )
 
+    def test_llm_failure_has_terminal_event_and_inconclusive_verdict(self):
+        context = ResearchLoopContext(
+            endpoint=self.endpoint,
+            target_url=self.target_url,
+            baseline_observation=self.baseline_obs,
+            denial_classification=self.classification,
+        )
+        mock_provider = Mock()
+        mock_provider.generate_structured_json.side_effect = RuntimeError("timed out")
+
+        class DeniedTransport:
+            def request(self, method, url, payload, headers, timeout):
+                return TransportResponse(
+                    status_code=403,
+                    text='{"code": 403, "message": "Permission denied"}',
+                    headers={"content-type": "application/json"},
+                )
+
+        event_log = []
+        result = run_research_loop(
+            context=context,
+            config=ResearchLoopConfig(
+                max_turns=1,
+                max_budget=1,
+                llm_provider=mock_provider,
+            ),
+            transport=DeniedTransport(),
+            emit=lambda evt: event_log.append(evt.event_type),
+        )
+
+        self.assertIn(ResearchEventType.LLM_REASONING_STARTED, event_log)
+        self.assertIn(ResearchEventType.LLM_REASONING_FAILED, event_log)
+        self.assertNotIn(ResearchEventType.LLM_REASONING_COMPLETED, event_log)
+        self.assertEqual(result.final_verdict, EvidenceVerdict.INCONCLUSIVE)
+        self.assertEqual(context.metadata["llm_terminal_status"], "failed")
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -3,6 +3,7 @@ import json
 from agent.loop_types import ResearchEvent, ResearchEventType
 from harness.coverage_ledger import CoverageStatus, CoverageUnit
 from harness.execution_trace import ExecutionTraceRecorder
+from harness.finding_models import FindingRecord, Verdict
 from harness.models import EndpointIR
 from harness.research_models import ResearchCase, ResearchExecutionResult
 
@@ -104,6 +105,90 @@ def test_execution_trace_writes_one_jsonl_record(tmp_path):
     assert rows[0]["responses"]["final_response_category"] == "soft_access_policy_denial"
 
 
+def test_execution_trace_append_preserves_completed_records(tmp_path):
+    output = tmp_path / "execution.jsonl"
+    endpoint = EndpointIR(method="POST", path="/api/test")
+
+    first = ExecutionTraceRecorder(
+        run_id="RUN-APPEND",
+        output_path=output,
+        total_tasks=2,
+        llm_enabled=False,
+    )
+    first.begin_task(
+        index=1,
+        task={"task_id": "TASK-1", "method": "POST", "path": "/api/test"},
+        endpoint=endpoint,
+    )
+    first.finalize_task(
+        task={"task_id": "TASK-1", "method": "POST", "path": "/api/test"},
+        endpoint=endpoint,
+        execution_result=make_execution_result(),
+        coverage_unit=make_coverage(),
+        elapsed_ms=1.0,
+    )
+    first.close()
+
+    resumed = ExecutionTraceRecorder(
+        run_id="RUN-APPEND",
+        output_path=output,
+        total_tasks=2,
+        llm_enabled=False,
+        append=True,
+    )
+    resumed.begin_task(
+        index=2,
+        task={"task_id": "TASK-2", "method": "POST", "path": "/api/test"},
+        endpoint=endpoint,
+    )
+    resumed.finalize_task(
+        task={"task_id": "TASK-2", "method": "POST", "path": "/api/test"},
+        endpoint=endpoint,
+        execution_result=make_execution_result(),
+        coverage_unit=make_coverage(),
+        elapsed_ms=1.0,
+    )
+    resumed.close()
+
+    rows = [json.loads(line) for line in output.read_text(encoding="utf-8").splitlines()]
+    assert [row["task"]["task_id"] for row in rows] == ["TASK-1", "TASK-2"]
+
+
+def test_execution_trace_serializes_finding_for_crash_recovery(tmp_path):
+    output = tmp_path / "execution.jsonl"
+    endpoint = EndpointIR(method="POST", path="/api/test")
+    finding = FindingRecord(
+        finding_id="FINDING-1",
+        verdict=Verdict.CONFIRMED,
+        fingerprint="fp-1",
+        title="Confirmed test finding",
+        description="Physical evidence was recorded",
+    )
+    recorder = ExecutionTraceRecorder(
+        run_id="RUN-FINDING",
+        output_path=output,
+        total_tasks=1,
+        llm_enabled=False,
+    )
+    recorder.begin_task(
+        index=1,
+        task={"task_id": "TASK-1", "method": "POST", "path": "/api/test"},
+        endpoint=endpoint,
+    )
+    recorder.finalize_task(
+        task={"task_id": "TASK-1", "method": "POST", "path": "/api/test"},
+        endpoint=endpoint,
+        execution_result=make_execution_result(),
+        coverage_unit=make_coverage(),
+        elapsed_ms=1.0,
+        finding=finding,
+    )
+    recorder.close()
+
+    row = json.loads(output.read_text(encoding="utf-8"))
+    assert row["finding"]["finding_id"] == "FINDING-1"
+
+
 def test_llm_event_marks_actual_invocation(tmp_path):
     output = tmp_path / "execution.jsonl"
     endpoint = EndpointIR(method="GET", path="/api/admin/test")
@@ -168,6 +253,8 @@ def test_llm_event_marks_actual_invocation(tmp_path):
     assert row["llm"]["invoked"] is True
     assert row["llm"]["started_count"] == 1
     assert row["llm"]["completed_count"] == 1
+    assert row["llm"]["failed_count"] == 0
+    assert row["llm"]["terminal_status"] == "completed"
     assert row["llm"]["model"] == "Ornith-1.5-9B-Abliterated-IQ3_M"
 
 

@@ -51,7 +51,17 @@
 ## 4. Next Single Action
 
 **当前唯一下一动作**：
-将 Phase 5.4（本地模型 CoT 激活）与 Phase 5.5（双黄金标准交付）的实战操作步骤与避坑经验，完整回填至用户本地操作文档 `Invar实战.md` 中，完成知识沉淀。
+请完整阅读：C:\dev\Invar\docs\ai 目录下的Invar实战.md和补天漏洞响应平台（Butian）标准化漏洞提交流水线与规范指南.md
+我目标是按照补天规范来对ikuai8.com 进行漏洞挖掘！我当前的invar项目已经具备了所有信息采集的相关工具和源码！
+
+当前的我们已经完成了：阶段 3：katana 静态资产深度爬取、清洗与物理物化：
+
+[✓] 前端 JS 代码已全量落盘至: tmp\raw_js
+ Write-Host "[✓] 物理文件 SHA256 清单已固化: $jsManifest" -ForegroundColor Green
+[✓] 物理文件 SHA256 清单已固化: tmp\ikuai8.com_javascript_manifest.jsonl
+
+我想请教下我们的base-jev模型步骤应该是什么时候介入执行uv run --project python python scripts/generate_triage_predictions.py ？
+
 
 ---
 

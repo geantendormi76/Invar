@@ -1,5 +1,5 @@
 import unittest
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 from harness.config import InvarConfig
 from harness.models import EndpointIR
 from harness.sandbox_executor import AdaptiveSandboxExecutor
@@ -140,6 +140,38 @@ class Sandbox403ResearchLoopIntegrationTests(unittest.TestCase):
 
         case = result.research_case
         self.assertNotEqual(case.decision.status, "vulnerable")
+        self.assertFalse(result.evidence.is_anomaly)
+
+    def test_llm_failure_keeps_denial_verdict_inconclusive(self):
+        endpoint = EndpointIR(
+            method="GET",
+            path="/api/v1/internal/config",
+            tags=["sensitive-route"],
+        )
+        provider = Mock()
+        provider.generate_structured_json.side_effect = RuntimeError("timed out")
+        executor = AdaptiveSandboxExecutor(
+            cfg=self.config,
+            llm_provider=provider,
+        )
+
+        class DeniedTransport:
+            def request(self, method, url, payload, headers, timeout):
+                class Resp:
+                    status_code = 403
+                    text = "403 Forbidden"
+                    headers = {"Content-Type": "text/plain"}
+                return Resp()
+
+        executor.transport = DeniedTransport()
+        executor.research_agent.transport = executor.transport
+        result = executor.probe_endpoint_with_research(endpoint)
+
+        self.assertEqual(result.research_case.decision.status, "inconclusive")
+        self.assertEqual(
+            result.research_case.metadata["llm_terminal_status"],
+            "failed",
+        )
         self.assertFalse(result.evidence.is_anomaly)
 
 

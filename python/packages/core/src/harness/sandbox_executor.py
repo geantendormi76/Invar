@@ -18,7 +18,12 @@ from harness.method_tamper import MethodTamperOperator
 from harness.models import EndpointIR
 from harness.mutation_policy import MutationPolicy
 from harness.research_evidence import ProbeAttemptEvidenceMapper
-from harness.research_models import ResearchCase, ResearchExecutionResult, SecurityInvariant
+from harness.research_models import (
+    ResearchCase,
+    ResearchDecision,
+    ResearchExecutionResult,
+    SecurityInvariant,
+)
 from harness.semantic_models import EquivalenceVerdict, SemanticEquivalenceEvaluator
 from harness.transformation_models import TransformationFamilyRegistry
 from harness.transport import HttpTransport
@@ -171,6 +176,13 @@ class AdaptiveSandboxExecutor:
 
         research_case.metadata["agent_turns_executed"] = loop_res.turns_executed
         research_case.metadata["agent_breakthrough"] = loop_res.breakthrough_achieved
+        research_case.metadata["agent_final_verdict"] = loop_res.final_verdict.value
+        if "llm_terminal_status" in loop_res.context.metadata:
+            research_case.metadata["llm_terminal_status"] = (
+                loop_res.context.metadata["llm_terminal_status"]
+            )
+        if "llm_error" in loop_res.context.metadata:
+            research_case.metadata["llm_error"] = loop_res.context.metadata["llm_error"]
 
         if loop_res.breakthrough_achieved and loop_res.evidence_chain:
             applied = loop_res.evidence_chain.applied_variant
@@ -417,6 +429,15 @@ class AdaptiveSandboxExecutor:
             response_text=last_response_text,
             is_soft_denial=is_soft,
         )
+        if research_case.metadata.get("llm_terminal_status") == "failed":
+            decision = ResearchDecision(
+                status="inconclusive",
+                rationale=(
+                    "本地大模型反思阶段未完成，不能将已执行变异范围外推为防御确认: "
+                    f"{research_case.metadata.get('llm_error', 'unknown error')}"
+                ),
+            )
+            research_case.set_decision(decision)
 
         evidence_history = ProbeAttemptEvidenceMapper.to_evidence_records(
             research_case=research_case,

@@ -24,7 +24,10 @@ class ModelProviderContractTests(unittest.TestCase):
         fake_resp.status_code = 200
         fake_resp.json.return_value = {
             "id": "chatcmpl-001",
-            "choices": [{"message": {"role": "assistant", "content": "hello world"}}],
+            "choices": [{
+                "finish_reason": "stop",
+                "message": {"role": "assistant", "content": "hello world"},
+            }],
         }
 
         with patch.object(self.provider.session, "post", return_value=fake_resp) as post_mock:
@@ -62,7 +65,10 @@ class ModelProviderContractTests(unittest.TestCase):
         fake_resp = Mock()
         fake_resp.status_code = 200
         fake_resp.json.return_value = {
-            "choices": [{"message": {"role": "assistant", "content": raw_llm_output}}],
+            "choices": [{
+                "finish_reason": "stop",
+                "message": {"role": "assistant", "content": raw_llm_output},
+            }],
         }
 
         with patch.object(self.provider.session, "post", return_value=fake_resp):
@@ -74,6 +80,56 @@ class ModelProviderContractTests(unittest.TestCase):
         self.assertEqual(data["strategy"], "HEADER_CUSTOM_REWRITE")
         self.assertEqual(data["suggested_header"], "X-Custom-Rewrite")
         self.assertEqual(data["confidence"], 0.88)
+
+    def test_structured_json_accepts_bare_object_and_disables_thinking(self):
+        fake_resp = Mock()
+        fake_resp.status_code = 200
+        fake_resp.json.return_value = {
+            "choices": [{
+                "finish_reason": "stop",
+                "message": {
+                    "role": "assistant",
+                    "content": '{"rationale":"test","headers":{},"payload":{}}',
+                },
+            }],
+        }
+
+        with patch.object(self.provider.session, "post", return_value=fake_resp) as post_mock:
+            data = self.provider.generate_structured_json(
+                messages=[{"role": "user", "content": "return json"}],
+            )
+
+        request_payload = post_mock.call_args.kwargs["json"]
+        self.assertEqual(data["rationale"], "test")
+        self.assertEqual(request_payload["max_tokens"], 256)
+        self.assertEqual(request_payload["response_format"], {"type": "json_object"})
+        self.assertEqual(
+            request_payload["chat_template_kwargs"],
+            {"enable_thinking": False},
+        )
+        self.assertFalse(self.provider.session.trust_env)
+
+    def test_structured_json_rejects_length_truncated_output(self):
+        fake_resp = Mock()
+        fake_resp.status_code = 200
+        fake_resp.json.return_value = {
+            "choices": [{
+                "finish_reason": "length",
+                "message": {
+                    "role": "assistant",
+                    "content": '{"rationale":"truncated"',
+                    "reasoning_content": "unfinished reasoning",
+                },
+            }],
+        }
+
+        with patch.object(self.provider.session, "post", return_value=fake_resp):
+            with self.assertRaises(ModelProviderError) as ctx:
+                self.provider.generate_structured_json(
+                    messages=[{"role": "user", "content": "return json"}],
+                )
+
+        self.assertIn("finish_reason=length", str(ctx.exception))
 
     def test_connection_error_raises_structured_model_provider_error(self):
         """【契约 3】网络故障或本地 llama-server 未就绪时，抛出结构化异常，优雅容错"""
