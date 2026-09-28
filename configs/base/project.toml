@@ -1,6 +1,6 @@
 [project]
 name = "Invar"
-profile = "research"
+profile = "production"
 
 [paths]
 data = "data"
@@ -11,3 +11,4 @@ artifacts = "artifacts"
 [runtime]
 backend = "default"
 execution = "local"
+

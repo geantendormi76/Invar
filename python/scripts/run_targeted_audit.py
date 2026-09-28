@@ -118,7 +118,10 @@ def file_sha256(path: Path) -> Optional[str]:
 
 
 def make_executing_run(run_id: str) -> ResearchRun:
+    # Existing System-2 targeted audit is explicitly a Research track.
+    from harness.run_models import RunTrack
     run = ResearchRun(
+        track=RunTrack.RESEARCH,
         run_id=run_id,
         target_root="ikuai8.com",
         scope=ResearchScope(target_domain="ikuai8.com"),
@@ -591,3 +594,4 @@ def main() -> int:
 
 if __name__ == "__main__":
     sys.exit(main())
+

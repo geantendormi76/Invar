@@ -12,6 +12,13 @@ class IllegalStateTransitionError(ValueError):
     pass
 
 
+class RunTrack(str, Enum):
+    """Invar 运行轨道契约；与 RunStatus 正交。"""
+    PRODUCTION = "PRODUCTION"
+    RESEARCH = "RESEARCH"
+    INTELLIGENCE = "INTELLIGENCE"
+    BENCHMARK = "BENCHMARK"
+
 class RunStatus(str, Enum):
     INIT = "INIT"
     SCOPE_VERIFIED = "SCOPE_VERIFIED"
@@ -136,6 +143,7 @@ class ResearchRun:
     prior_run_refs: List[str] = field(default_factory=list)
     block_reason: Optional[str] = None
     metadata: Dict[str, Any] = field(default_factory=dict)
+    track: RunTrack = RunTrack.PRODUCTION
 
     def transition_to(self, new_status: RunStatus, reason: Optional[str] = None) -> None:
         """
@@ -169,6 +177,7 @@ class ResearchRun:
             "source_ref": asdict(self.source_ref),
             "scope": asdict(self.scope),
             "profile": self.profile.name,
+            "track": self.track.value,
             "execution_policy": asdict(self.execution_policy),
             "budget": asdict(self.budget) if self.budget else None,
             "started_at": self.started_at,
@@ -191,6 +200,12 @@ class ResearchRun:
         data_copy["source_ref"] = SourceRef(**data_copy["source_ref"])
         data_copy["scope"] = ResearchScope(**data_copy["scope"])
         data_copy["profile"] = RunProfile(**data_copy["profile"])
+        # Legacy payloads predate the Track Contract.
+        # Preserve historical Research semantics instead of silently relabelling them.
+        if "track" in data_copy:
+            data_copy["track"] = RunTrack(data_copy["track"])
+        else:
+            data_copy["track"] = RunTrack.RESEARCH
         data_copy["execution_policy"] = ExecutionPolicy(**data_copy["execution_policy"])
         if data_copy.get("budget"):
             data_copy["budget"] = RunBudget(**data_copy["budget"])
@@ -206,3 +221,4 @@ class ResearchRun:
         p = Path(path)
         content = p.read_text(encoding="utf-8")
         return cls.from_dict(json.loads(content))
+

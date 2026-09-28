@@ -1,7 +1,0 @@
-我当前的启发理解：
-第一步：我们需要重构第一层的子域名采集逻辑和增加多源并行的CTFR / crt.sh (专门走 SSL/TLS 证书透明度日志，秒级白捡冷门 dev/staging 子域)，将Subfinder (查询各大 API / 爬虫历史) 和 CTFR / crt.sh 采集到的信息都归一化聚合到.\scripts\data\asset\ingest_subdomains.py 进行去重与目标合法性校验。在做存活之前，扫描是否有 CNAME 指向失效的 AWS S3/GitHub Pages（白捡漏洞）。这样的交付契约：data/targets/<domain>/subdomains.jsonl (数量：从 50 个扩充到 300+ 个高质量子域)，增大我们采集数据的攻击面打击的范围！
-第二步：执行工具：ingest_httpx.py (驱动 HTTPX) ：主要的职责是负责剔除死域名和自动做泛解析（Wildcard DNS）过滤，杜绝假域名污染并识别开放 80/443/8443/8080 等常用 Web 端口的真实服务。交付契约：data/targets/<domain>/live_hosts.jsonl (真实存活 Web 主机清单)
-第三步：执行工具：ingest_katana.py ➔ Katana 爬虫 ➔ normalize_katana.py ➔ download_javascript.py  。其核心职责：从存活的每一个主机（特别是 dev/admin/api 类主机）向下爬取引用的 Webpack / Vite 分包；下载并物理落盘到 tmp/raw_js。交付契约：tmp/raw_js/*.js (例如 209 个真实前端打包代码文件)
-其实第二步和第三步和我们当前的笔记是没有变化的是吧！之后第一步加入了新的采集源并且进行初筛！
-第四步：结合前三步输出的tmp/raw_js/*.js 用scan_pipeline.py 提取 EndpointIR，这步叫 AST 解析器，筛选各个API接口！然后交给我们训练出来的base-jev模型进行推演（generate_triage_predictions.py），规则+模型双轨对比（triage_dual_track_comparator.py ），交付契约：artifacts/reports/triage_pools_v2.json (精准锁定 78 个高危靶心端点)
-第五步：进入Invar System-2 动态执行与实证判决，对之前规则+模型双轨对比（triage_dual_track_comparator.py ），交付契约：artifacts/reports/triage_pools_v2.json (精准锁定 78 个高危靶心端点) 执行triage_dispatcher.py (把 78 个靶心组装成 P0/P1 待测任务)，AdaptiveSandboxExecutor (基于 InvariantEvaluator 发起真实的 IDOR 与越权差分测试)；Independent Verification & PromotionGate ➔ 导出 KnowledgeCard 与权威战报。这个份报告就是赏金报告！
