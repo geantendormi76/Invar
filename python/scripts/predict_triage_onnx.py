@@ -21,7 +21,7 @@ from tokenizers import Tokenizer
 import tree_sitter_javascript as tsjavascript
 from tree_sitter import Language, Parser
 
-PROJECT_ROOT = Path(__file__).resolve().parents[3]
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
 _JS_LANGUAGE = Language(tsjavascript.language())
 
 CAND_ANCHOR_TOKEN = "<|cand_anchor|>"

@@ -11,8 +11,6 @@ fn process_research_executor_satisfies_orchestrator_contract() {
             "run".to_string(),
             "--project".to_string(),
             "C:\\dev\\Invar\\python".to_string(),
-            "--python".to_string(),
-            "3.11".to_string(),
             "python".to_string(),
             "-m".to_string(),
             "harness.research_worker".to_string(),

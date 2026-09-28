@@ -1,10 +1,35 @@
 import os
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Dict, Optional
+import tomllib
+from typing import Any, Dict, Optional
+
+from harness.run_models import RunTrack
 
 # 动态解析 Monorepo 根目录 (从 python/packages/core/src/harness 回溯 5 层)
 _REPO_ROOT = Path(__file__).resolve().parents[5]
+
+
+def _load_toml_safe(path: Path) -> Dict[str, Any]:
+    """安全解析 TOML 文件，不存在或解析异常时优雅返回空字典"""
+    if not path.is_file():
+        return {}
+    try:
+        with path.open("rb") as f:
+            return tomllib.load(f)
+    except Exception:
+        return {}
+
+
+def _resolve_track_from_name(track_name: Optional[str], default: RunTrack = RunTrack.PRODUCTION) -> RunTrack:
+    """将名称安全转换为 RunTrack 枚举"""
+    if not track_name:
+        return default
+    tn = str(track_name).strip().upper()
+    try:
+        return RunTrack(tn)
+    except ValueError:
+        return default
 
 
 @dataclass
@@ -19,8 +44,45 @@ class InvarConfig:
     max_mutation_rounds: int = field(default_factory=lambda: int(os.getenv("INVAR_MAX_MUTATIONS", "4")))
     custom_headers: Dict[str, str] = field(default_factory=dict)
 
+    # 运行轨道与 Profile 契约字段
+    profile: Optional[str] = None
+    track: Optional[RunTrack] = None
+    project_config: Dict[str, Any] = field(default_factory=dict)
+    profile_config: Dict[str, Any] = field(default_factory=dict)
+
     def __post_init__(self):
         self.output_dir.mkdir(parents=True, exist_ok=True)
+
+        # 1. 读取 configs/base/project.toml 基础配置
+        proj_toml_path = self.workspace_root / "configs" / "base" / "project.toml"
+        self.project_config = _load_toml_safe(proj_toml_path)
+
+        # 2. 确定 active profile（环境变量 INVAR_PROFILE > 显式参数 > project.toml > 默认 "production"）
+        if self.profile is None:
+            env_profile = os.getenv("INVAR_PROFILE")
+            if env_profile:
+                self.profile = env_profile
+            else:
+                proj_info = self.project_config.get("project", {})
+                self.profile = proj_info.get("profile", "production")
+
+        # 3. 读取 configs/profiles/{self.profile}.toml
+        prof_toml_path = self.workspace_root / "configs" / "profiles" / f"{self.profile}.toml"
+        self.profile_config = _load_toml_safe(prof_toml_path)
+
+        # 4. 确定 active track（环境变量 INVAR_TRACK > 显式参数 > profile.toml 的 [track].name > profile 语义推断 > 默认 PRODUCTION）
+        if self.track is None:
+            env_track = os.getenv("INVAR_TRACK")
+            if env_track:
+                self.track = _resolve_track_from_name(env_track, RunTrack.PRODUCTION)
+            else:
+                track_info = self.profile_config.get("track", {})
+                track_name = track_info.get("name")
+                if not track_name:
+                    track_name = self.profile
+                self.track = _resolve_track_from_name(track_name, RunTrack.PRODUCTION)
+
+        # 5. 既有请求头与鉴权处理
         default_headers = {
             "User-Agent": (
                 "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "

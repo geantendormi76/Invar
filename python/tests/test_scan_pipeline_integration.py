@@ -1,9 +1,16 @@
-﻿import unittest
+# -*- coding: utf-8 -*-
+import sys
 from pathlib import Path
 from tempfile import TemporaryDirectory
+import unittest
 from unittest.mock import patch
 
-import scripts.data.pipeline.scan_pipeline as scan_pipeline
+REPO_ROOT = Path(__file__).resolve().parents[2]
+PYTHON_SCRIPTS = REPO_ROOT / "python" / "scripts"
+if str(PYTHON_SCRIPTS) not in sys.path:
+    sys.path.insert(0, str(PYTHON_SCRIPTS))
+
+import scan_pipeline
 
 
 class ScanPipelineIntegrationTests(unittest.TestCase):

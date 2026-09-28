@@ -24,8 +24,7 @@
       { "pattern": "**/test_*.py", "compress": true },
 
       // 2. 历史数据脚本与辅助工具：仅保留骨架
-      // { "pattern": "scripts/**/*", "compress": true },
-      // { "pattern": "python/scripts/**/*", "compress": true },
+      //       // { "pattern": "python/scripts/**/*", "compress": true },
 
       // 3. 核心生产源码、架构文档与配置量规：不压缩，100% 完整保留
       { "pattern": "python/packages/**/*" },
@@ -71,7 +70,6 @@
     "apps/**/*",
     "configs/**/*",
     "python/**/*",
-    "scripts/**/*",
     "docs/**/*"
   ],
 
