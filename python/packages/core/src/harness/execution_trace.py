@@ -10,7 +10,7 @@ from pathlib import Path
 from threading import Lock
 from typing import Any, Dict, List, Optional
 
-from agent.loop_types import ResearchEvent, ResearchEventType
+from harness.domain_contracts import ResearchEvent, ResearchEventType
 from harness.coverage_ledger import CoverageUnit
 from harness.denial_models import DenialObservation, DeterministicDenialClassifier
 from harness.finding_models import FindingRecord

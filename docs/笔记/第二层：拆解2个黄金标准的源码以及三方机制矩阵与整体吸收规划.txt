@@ -1,0 +1,1698 @@
+# Claude-Red IDOR ↔ A.I.G Authorization Bypass ↔ Invar ResearchTask
+
+## 三方机制矩阵与整体吸收规划
+
+> 分析基准：截至 2026-09-29 的公开 GitHub 材料。
+> Claude-Red 最新 release 为 v0.3.0（2026-08-30）；A.I.G 最新 release 为 v4.6.3（2026-09-24）。
+> 注意：A.I.G 当前仓库同时存在 `agent-scan` 的 `authorization-bypass-detection` 检测 Skill，以及新版 `aig-agent-redteam` 第一性原理蓝军 Skill；两者职责不同，不能混成一个模块。
+
+---
+
+# 1. 一句话理解
+
+### Claude-Red
+
+> **把一个有经验安全工程师做 IDOR 时脑中的检查顺序、变体和边界条件，整理成 LLM 可以逐项执行的领域知识 Skill。**
+
+它的 IDOR Skill 明确给出了触发词、完整方法、准备阶段、请求识别、参数变异、盲测、绕过、具体场景和报告流程，并且注明知识来源。
+
+### A.I.G
+
+> **把“如何研究 Agent 安全”抽象成能力建模 → 风险假设 → 最小安全实验 → 自适应变异 → 证据 → 报告的研究控制流程。**
+
+A.I.G 当前的新版蓝军 Skill 明确要求先建模能力与信任边界，再生成风险假设，而不是直接盲跑 payload；同时要求每轮记录假设、动作、响应、裁决和下一轮为什么只改变一个变量。
+
+### Invar
+
+> **把研究动作转化为结构化任务，做确定性 HTTP 执行，保存物理证据，再通过不变量、独立复核和晋级门禁决定什么能成为事实。**
+
+当前 Invar 已经存在 `ResearchTask`、`ResearchCase`、`ProbeAttempt`、`EvidenceRecord`、`VerificationGate`、`PromotionGate` 等对应层次。
+
+---
+
+# 2. 三方最重要的职责边界
+
+这一点先定死，否则后面一定会重复造轮子。
+
+```text
+Claude-Red
+    ↓
+“应该检查什么”
+领域安全知识 / IDOR 技术覆盖
+
+A.I.G
+    ↓
+“研究时应该怎么想、怎么变异”
+假设生成 / 自适应测试 / Agent 控制
+
+Invar
+    ↓
+“什么结果才算证据、什么结果才能成为事实”
+确定性执行 / Evidence / Invariant / Verification
+```
+
+因此：
+
+```text
+Claude-Red ≠ Invar Executor
+A.I.G ≠ Invar Verifier
+Invar ≠ 安全知识百科
+```
+
+这三个项目最合理的组合，不是互相替代，而是形成三层。
+
+---
+
+# 3. 第一层：Claude-Red IDOR 原始材料解剖
+
+## 3.1 Metadata / Trigger
+
+Claude-Red 的 IDOR Skill 一开始就明确：
+
+* Skill Name
+* 来源
+* 描述
+* Trigger Phrases
+* 激活后的执行规则
+
+它的来源字段直接指向 `offensive-checklist` 的 IDOR 材料，而不是声称这些知识由模型自行发明。
+
+触发词包含：
+
+```text
+IDOR
+horizontal privilege escalation
+vertical privilege escalation
+object enumeration
+GUID
+API IDOR
+mass assignment
+broken access control
+```
+
+### 对 Invar 的启发
+
+这里真正值得吸收的不是“关键词列表”，而是：
+
+```text
+Skill
+→ 明确适用面
+→ 明确触发条件
+→ 明确领域
+```
+
+这应该成为以后 Invar Skill 的**知识层入口契约**。
+
+---
+
+# 4. Claude-Red 的第二段：操作纪律
+
+Claude-Red 明确要求：
+
+1. 加载完整方法论；
+2. 按顺序执行；
+3. 判断每个技术是否适用于当前目标；
+4. 跟踪完成项；
+5. 根据结果决定下一步。
+
+这其实已经不是普通“文档”。
+
+它已经是：
+
+```text
+Checklist
++
+Applicability Gate
++
+Progress Tracking
++
+Next-Step Policy
+```
+
+### 对 Invar 的启发
+
+这个结构非常适合转成：
+
+```text
+Skill
+   ↓
+Preconditions
+   ↓
+Applicable Checks
+   ↓
+Coverage
+   ↓
+Next Research Step
+```
+
+---
+
+# 5. Claude-Red 的核心 IDOR 因果模型
+
+Claude-Red 不只是写：
+
+> “把 ID 改掉。”
+
+它把 IDOR 的根因拆成：
+
+```text
+Missing Authorization Check
+Client-Side ID Transmission
+Predictable Identifier
+Insufficient Authorization Logic
+Improper Session Handling
+Reliance on Obfuscation
+```
+
+再映射到：
+
+```text
+Horizontal
+Vertical
+Context-Dependent
+```
+
+这是非常重要的一层。
+
+它实际上在告诉研究 Agent：
+
+> **IDOR 不是“ID 看起来可以改”，而是“对象引用和授权关系没有被服务器正确绑定”。**
+
+这比单纯的 payload 列表有价值得多。
+
+---
+
+# 6. Claude-Red 的第一条核心链路
+
+它给出了：
+
+```text
+Create Test Accounts
+        ↓
+Discover Features
+        ↓
+Intercept Traffic
+        ↓
+Switch IDs
+        ↓
+IDOR?
+   ├── Yes → Document
+   └── No
+        ↓
+Protection Bypass
+        ↓
+Information Leak
+```
+
+这就是 Claude-Red 真正的研究状态机雏形。
+
+---
+
+# 7. Claude-Red 的 Preparation 层
+
+原始材料要求：
+
+```text
+多个账户
++
+不同权限级别
++
+同权限多账户
++
+正常行为基线
++
+对象引用清单
++
+HTTP 请求捕获
+```
+
+它还特别要求记录对象标识、端点和潜在 side channel。
+
+### 对 Invar 的关键意义
+
+这里其实出现了 Invar 目前非常需要的一层：
+
+> **授权关系不是单请求属性，而是一个“主体 × 对象 × 操作”的关系模型。**
+
+这说明以后我们不能把：
+
+```text
+POST /delegate/grant
+```
+
+简单理解成：
+
+```text
+这个 endpoint 是否返回 200？
+```
+
+而应该理解成：
+
+```text
+主体 A
+    ↓
+操作 grant
+    ↓
+资源 / 被授权对象 X
+    ↓
+应该允许 / 不应该允许
+```
+
+---
+
+# 8. Claude-Red 的对象识别模型
+
+它识别的对象引用并不仅仅是路径参数：
+
+```text
+URL
+Body
+Cookie
+Header
+JWT Claims
+Signed Cookie
+Nested JSON
+Array
+UUID
+GUID
+文件引用
+WebSocket room
+GraphQL object
+```
+
+这说明：
+
+> **IDOR 的真正研究对象不是“参数名 id”，而是“客户端可控制的对象引用”。**
+
+这是我们当前 Invar 特别值得吸收的抽象。
+
+因为 Invar 当前 `triage_dispatcher.py` 采用的是一个明显更简单的候选识别启发式：通过 `id`、`user_id`、`account_id`、`tenant_id` 等关键词识别潜在 IDOR 参数。
+
+### [推导]
+
+因此目前：
+
+```text
+TriageDispatcher
+```
+
+更适合被理解成：
+
+> **IDOR candidate pre-filter**
+
+而不能被理解成：
+
+> **完整 IDOR detection engine**
+
+这一点非常重要。
+
+---
+
+# 9. Claude-Red 的 Test Methodology
+
+它形成了完整的差分研究：
+
+```text
+User A
+ ↓
+建立正常请求
+ ↓
+记录对象引用
+ ↓
+User B
+ ↓
+重放 User A 行为
+ ↓
+替换对象引用
+ ↓
+比较结果
+```
+
+同时覆盖：
+
+```text
+read
+write
+horizontal
+vertical
+nested
+mobile
+indirect reference
+```
+
+这实际上已经非常接近一个：
+
+> **Differential Authorization Test**
+
+而不是简单的 fuzzing。
+
+---
+
+# 10. Claude-Red 高价值内容：绕过不是无限变异
+
+它给出的绕过类别包括：
+
+```text
+ID Obfuscation
+Method Switching
+Content-Type
+Parameter Pollution
+Path Normalization
+API Version
+Mass Assignment
+Reference Leakage
+```
+
+我们不能直接照搬里面的具体攻击样本。
+
+真正应该吸收的是：
+
+```text
+Baseline
+↓
+明确发现防线
+↓
+一次只改变一个授权相关变量
+↓
+观察授权语义是否改变
+```
+
+这恰好可以和 A.I.G 的自适应变异原则结合。
+
+---
+
+# 11. 第二层：A.I.G 的 Authorization Skill 原始材料
+
+这里必须先做一个非常关键的区分。
+
+A.I.G 的 `authorization-bypass-detection/SKILL.md` 是：
+
+```text
+AI Agent 行为授权测试
+```
+
+它不是传统 HTTP API IDOR Skill。
+
+它的 frontmatter 明确：
+
+```text
+allowed-tools: dialogue
+```
+
+也就是说，它的执行入口只有对话。
+
+---
+
+# 12. A.I.G Authorization 的适用条件
+
+它只有在 Agent 具备下面能力时才执行：
+
+```text
+roles
+permission checks
+user / tenant data
+admin / privileged functions
+```
+
+如果目标没有：
+
+```text
+users
+roles
+privileged operations
+```
+
+则直接跳过。
+
+### 这个思想特别值得保留
+
+因为它意味着：
+
+> **安全 Skill 首先必须问“这个攻击面存在吗？”**
+
+而不是：
+
+```text
+所有目标
+→ 跑一遍 IDOR
+```
+
+---
+
+# 13. A.I.G Authorization 的三个核心策略
+
+它把行为测试分成：
+
+### Cross-user / Cross-tenant
+
+尝试取得其他用户或租户的数据/操作权限。
+
+### Privilege Escalation
+
+尝试执行需要更高权限的操作。
+
+### Auth Bypass / Role Confusion
+
+尝试通过对话改变身份、角色或认证要求。
+
+因此 A.I.G 在这里真正测试的是：
+
+```text
+Caller Intent
+     ↓
+Agent Interpretation
+     ↓
+Authorization Boundary
+     ↓
+Protected Action
+```
+
+---
+
+# 14. A.I.G Authorization 的 Judge
+
+原始 Skill 的裁决非常简单：
+
+### Vulnerable
+
+出现：
+
+```text
+其他用户数据泄露
++
+管理员操作执行
++
+权限提升
++
+认证绕过
+```
+
+### Safe
+
+Agent：
+
+```text
+拒绝
++
+不泄露
++
+不执行越权动作
+```
+
+这里与 Invar 存在一个非常重要的层级差异。
+
+### A.I.G：
+
+```text
+Response / Behavior
+→ Vulnerable / Safe
+```
+
+### Invar：
+
+```text
+HTTP Observation
+→ ResearchCase
+→ Evidence
+→ Invariant
+→ Verification
+→ Promotion
+```
+
+所以：
+
+> **A.I.G 的 Judge 不能替代 Invar 的裁决链。**
+
+这不是缺点，而是职责不同。
+
+---
+
+# 15. 第三层：A.I.G 新版第一性原理 Skill
+
+真正值得和 Invar 深度对照的是 A.I.G 新版 `aig-agent-redteam`。
+
+它把研究过程提升到了：
+
+```text
+Scope
+→ Capability Model
+→ Hypothesis
+→ Minimal Safe Test
+→ Execution
+→ Adaptive Mutation
+→ Evidence
+→ Report
+```
+
+这部分与 Invar 的理念高度接近。
+
+---
+
+# 16. A.I.G 的 Capability Model
+
+攻击前，它要求建立：
+
+```text
+Capability
+Accessible Data
+Allowed Action
+Attacker-Controlled Input
+Trust Boundary
+Expected Defense
+Validation Method
+```
+
+这其实就是：
+
+```text
+ThreatModel
+```
+
+的雏形。
+
+而当前 Invar 已经有 `ResearchScope`，并把：
+
+```text
+target_domain
+included_subdomains
+excluded_paths
+allowed_methods
+authorization_boundary
+```
+
+结构化。
+
+所以这里的结论不是“我们缺 ThreatModel”。
+
+而是：
+
+> **A.I.G 证明 ThreatModel 应该在研究动作之前参与任务生成；Invar 已有契约，但要继续验证它是否真正驱动 Skill。**
+
+---
+
+# 17. A.I.G 的 Hypothesis Model
+
+A.I.G 明确规定：
+
+```text
+Hypothesis
+Attacker Entry
+Target Asset
+Boundary
+Expected Defense
+Safe Validation
+Success Criteria
+Potential Impact
+```
+
+而 Invar 当前的 `Hypothesis`：
+
+```text
+hypothesis_id
+statement
+rationale
+status
+evidence_notes
+```
+
+已经可以承载其中的一部分。
+
+这意味着：
+
+### 不应该立刻扩展 `ResearchTask`
+
+因为：
+
+```text
+ResearchTask
+```
+
+目前本身就是一个轻量执行任务契约。
+
+更适合承载研究语义的是：
+
+```text
+ResearchCase
++
+Hypothesis
++
+SecurityInvariant
+```
+
+---
+
+# 18. A.I.G 的最小实验思想
+
+它要求：
+
+> 每条假设都转换成能够证明/否定边界问题的最小测试。
+
+优先：
+
+```text
+Canary
+Temporary Directory
+Mock Callback
+Non-sensitive Metadata
+Read-only Probe
+```
+
+并限制破坏性行为。
+
+这一点与 Invar 的：
+
+```text
+Evidence
+Invariant
+Verification
+```
+
+是高度一致的。
+
+---
+
+# 19. A.I.G 的单变量自适应机制
+
+A.I.G 明确要求：
+
+```text
+一次运行一个测试
+↓
+记录响应
+↓
+判断为什么失败
+↓
+下一轮只改变一个变量
+```
+
+记录：
+
+```text
+round
+hypothesis_id
+payload_or_action
+target_response
+verdict
+defense_signal
+next_decision
+```
+
+而 Invar 已有：
+
+```text
+ProbeAttempt
+attempt_number
+payload
+status_code
+response_preview
+interpretation
+mutation_reason
+```
+
+这是这次三方对照里最清晰的**结构同构**之一。
+
+---
+
+# 20. 三方“实验记录”对照
+
+| 研究概念 | Claude-Red         | A.I.G                            | Invar                               |
+| ---- | ------------------ | -------------------------------- | ----------------------------------- |
+| 测试前提 | 多账号 / 权限 / 资源      | Capability / Trust Boundary      | ResearchScope / Run                 |
+| 假设   | 隐含在 IDOR checklist | 显式 Hypothesis                    | `Hypothesis`                        |
+| 基线   | 正常请求               | 能力模型 / 正常行为                      | Endpoint + Evidence                 |
+| 测试动作 | ID / 参数变化          | Payload / Action / Mutation      | `ProbeAttempt`                      |
+| 差分   | A/B 用户比较           | 单变量变异                            | HTTP Evidence + Semantic 判断         |
+| 观察   | response / access  | response / trace                 | `EvidenceRecord`                    |
+| 过程状态 | checklist progress | round                            | `ResearchCase.attempts`             |
+| 判定   | IDOR found         | resisted/partial/compromised/... | ResearchDecision / Finding          |
+| 最终事实 | 报告                 | Reviewer                         | IndependentVerifier + PromotionGate |
+
+这个表就是目前最重要的结果。
+
+---
+
+# 21. Invar 已经具备的关键“研究骨架”
+
+当前 `ResearchCase` 可以承载：
+
+```text
+case_id
+endpoint
+invariants
+hypotheses
+attempts
+decision
+metadata
+```
+
+并强制 `attempt_number` 连续。
+
+这意味着 Invar 实际上已经有：
+
+```text
+研究状态容器
+```
+
+而不是只有一个请求执行器。
+
+---
+
+# 22. Invar 的物理证据层比两个外部 Skill 更严格
+
+`EvidenceRecord` 保存：
+
+```text
+endpoint
+request
+response
+timestamp
+finding_type
+is_anomaly
+notes
+```
+
+并直接保存 HTTP 请求/响应事实。
+
+同时 Invar 还定义：
+
+```text
+DenialLayer
+EDGE
+PROXY
+ROUTER
+AUTHENTICATION
+AUTHORIZATION
+APPLICATION
+```
+
+以及：
+
+```text
+EvidenceGrade
+GRADE_A
+GRADE_B
+GRADE_C
+```
+
+并保存：
+
+```text
+status_code
+headers
+body_hash
+content_type
+latency
+business_code
+business_message
+is_soft_denial
+```
+
+### 这是一个非常重要的结论
+
+Claude-Red 和 A.I.G 告诉我们：
+
+> “应该研究授权。”
+
+而 Invar 已经在回答：
+
+> **“一个 403/软拒绝到底证明了什么？”**
+
+因此外部 Skill 不能反过来覆盖 Invar 的 Denial / Evidence 模型。
+
+---
+
+# 23. 当前 Invar ResearchTask 的真正职责
+
+Rust `ResearchTask` 当前核心字段是：
+
+```text
+task_id
+endpoint_id
+coverage_id
+hypothesis_id
+profile
+method
+path
+```
+
+并有 legacy compatibility。
+
+这说明：
+
+> **ResearchTask 本质上是“可执行研究任务元数据”，不是“完整安全方法论容器”。**
+
+这一点非常重要。
+
+所以以后我们不应该做成：
+
+```text
+ResearchTask
+=
+一个巨大的 IDOR Skill JSON
+```
+
+这是架构污染。
+
+更合理的是：
+
+```text
+Skill Knowledge
+      ↓
+Research Planning
+      ↓
+ResearchTask
+      ↓
+ResearchCase
+      ↓
+ProbeAttempt
+      ↓
+Evidence
+```
+
+---
+
+# 24. 当前 TriageTask 已经有“外部知识接入的入口”
+
+当前 `TriageTask` 比 Rust `ResearchTask` 更丰富，已经包含：
+
+```text
+surface_id
+pool_origin
+priority
+attack_class
+extracted_params
+impact_score
+sensitivity_score
+code_slice
+source_file
+source_line
+```
+
+之后再收敛为 Rust `ResearchTask`。
+
+尤其 `TriageDispatcher` 已经根据：
+
+```text
+impact
+sensitivity
+IDOR parameter
+destructive indicator
+```
+
+生成：
+
+```text
+H-AUTH-1
+H-IDOR-1
+H-DESTRUCT-1
+```
+
+以及：
+
+```text
+idor_boundary
+unauthorized_state_and_idor
+```
+
+等 `attack_class`。
+
+### [推导]
+
+这意味着：
+
+> **外部 Skill 最自然的接入点不是 Rust Core，而是“任务规划 / Research Knowledge 层”。**
+
+---
+
+# 25. 这里出现一个非常重要的冲突
+
+A.I.G 当前新版蓝军 Skill 规定：
+
+> 动态测试在范围内时，至少 30 条 payload，并要求数据集样本、算子变异样本、Agent 手工构造样本三部分覆盖。
+
+但当前 Invar：
+
+```text
+max_mutation_rounds = 4
+max_requests_per_task = 10
+```
+
+并且还有全局：
+
+```text
+max_requests = 1000
+```
+
+### 因此：
+
+**30 payload 不能直接搬到 Invar。**
+
+这不是谁对谁错的问题。
+
+A.I.G 的规则是其动态 Agent red-team 方法的质量下限；Invar 有自己的实验预算与确定性执行约束。
+
+所以正确做法是：
+
+```text
+A.I.G 30+
+    ↓
+研究覆盖思想
+
+而不是：
+
+30
+    ↓
+硬编码成 Invar 请求上限
+```
+
+这是非常典型的：
+
+> **机制应该吸收，数值不要未经验证直接复制。**
+
+---
+
+# 26. 三方最重要的“机制对应矩阵”
+
+| External Mechanism       | Claude-Red  | A.I.G                | Invar 当前对应                        | 结论         |
+| ------------------------ | ----------- | -------------------- | --------------------------------- | ---------- |
+| Trigger                  | 强           | 强                    | Skill 目标待建立                       | 应吸收        |
+| Preconditions            | 有           | 强                    | `ResearchScope` / Task 部分存在       | 应统一        |
+| Threat Model             | 隐含          | 强                    | 已有 `ResearchRun/Scope`            | 不重造        |
+| Attack Surface           | 强           | 强                    | `CoverageUnit` / EndpointIR       | 已有         |
+| Object Reference Model   | **很强**      | 弱                    | IDOR keyword heuristic            | 最值得补知识层    |
+| Baseline                 | 强           | 强                    | Evidence/ResearchCase             | 可组合        |
+| Hypothesis               | 隐含          | **很强**               | `Hypothesis`                      | 高度匹配       |
+| Test Step                | **很强**      | 很强                   | `ProbeAttempt`                    | 高度匹配       |
+| Mutation                 | 中           | **很强**               | mutation_reason / mutation policy | 高度匹配       |
+| Single-variable change   | 有           | **明确要求**             | 可由 attempt 记录                     | 应吸收        |
+| Differential Testing     | **核心**      | 部分                   | Semantic/Evidence 层已有             | 强相关        |
+| Canary / harmless proof  | 弱           | **强**                | Evidence 层可承载                     | 应吸收        |
+| Tool Boundary            | 中           | 强                    | Sandbox / scope                   | 保持 Invar   |
+| Verdict                  | IDOR / safe | resisted/partial/... | ResearchDecision + Gates          | Invar 不应降级 |
+| Evidence                 | 报告证据        | 精确响应/trace           | EvidenceRecord                    | Invar 更严格  |
+| Independent Verification | 弱           | Reviewer             | **Invar 强**                       | 保留         |
+| Promotion Gate           | 无           | 无                    | **Invar 有**                       | 核心差异       |
+| Source Provenance        | **强**       | 强                    | SourceRef / metadata              | 应打通        |
+| Testcase                 | 不突出         | **强**                | Sandbox / tests                   | 值得重点吸收     |
+| Report                   | 详细          | 很详细                  | reporting                         | 已有，不重复造    |
+
+---
+
+# 27. 真正的“最小有效机制”
+
+这次三个项目拆到最后，核心其实只剩下四层。
+
+```text
+① 专家方法论
+“检查什么”
+
+② 研究控制
+“下一步为什么这么测”
+
+③ 物理实验
+“实际上发生了什么”
+
+④ 事实裁决
+“这些结果够不够证明问题”
+```
+
+分别对应：
+
+```text
+Claude-Red
+A.I.G
+Invar Sandbox
+Invar Evidence / Verification
+```
+
+这比“三个项目融合”更准确。
+
+---
+
+# 28. 最值得吸收的机制一：领域方法论 Skill
+
+### 现象
+
+我们缺乏足够成熟的 Web 安全实战经验。
+
+### 原理
+
+Claude-Red 把成熟研究经验变成：
+
+```text
+Scope
+→ Preparation
+→ Discovery
+→ Testing
+→ Bypass
+→ Verification
+→ Reporting
+```
+
+### 对 Invar 的意义
+
+以后：
+
+```text
+IDOR
+SSRF
+Business Logic
+Race Condition
+Auth Bypass
+```
+
+都可以从成熟外部研究中建立对应 Skill，而不是我们自行发明。
+
+---
+
+# 29. 最值得吸收的机制二：Hypothesis-first，而不是 payload-first
+
+A.I.G 新版明确：
+
+> 不从固定 payload checklist 开始，而是从能力模型生成风险假设。
+
+这个思想非常适合 Invar。
+
+应该形成：
+
+```text
+Endpoint
+↓
+Capability
+↓
+Trust Boundary
+↓
+Hypothesis
+↓
+Minimum Experiment
+```
+
+而不是：
+
+```text
+Endpoint
+↓
+100 个 payload
+↓
+看看有没有 200
+```
+
+---
+
+# 30. 最值得吸收的机制三：单变量变异
+
+A.I.G 明确要求根据拒绝/部分成功的反馈，只改变一个变量，并记录为什么。
+
+Invar 当前 `ProbeAttempt.mutation_reason` 已经给了一个天然承载位置。
+
+这意味着：
+
+> **这里很可能不需要新算法，只需要让外部 Skill 的变异维度真正进入现有 ResearchCase。**
+
+---
+
+# 31. 最值得吸收的机制四：Known Vulnerable Target
+
+A.I.G 的 Agent-Scan 保留了专门 testcase，其中包括明确设计成存在授权绕过等多类漏洞的 Customer-Service Agent。
+
+这给 Invar 一个非常重要的方向：
+
+```text
+研究技能
++
+真实目标
+```
+
+之外，还必须有：
+
+```text
+研究技能
++
+已知答案靶场
+```
+
+否则我们永远无法判断：
+
+> Skill 变好了，还是只是 LLM 今天发挥得比较好？
+
+---
+
+# 32. 最值得吸收的机制五：失败也是研究数据
+
+A.I.G 的新版报告明确区分：
+
+```text
+compromised
+partial
+resisted
+skipped
+inconclusive
+```
+
+而不是只有：
+
+```text
+vulnerable / safe
+```
+
+这与 Invar 当前的：
+
+```text
+Hypothesis
+ProbeAttempt
+ResearchDecision
+Evidence
+```
+
+天然吻合。
+
+---
+
+# 33. 哪些东西不要照搬
+
+## 33.1 不要直接复制 Claude-Red 全部 Skill
+
+原因：
+
+```text
+Knowledge Explosion
+Prompt Context Explosion
+Trigger Collision
+重复内容
+维护成本
+```
+
+Claude-Red 的强项是作为知识库，不是作为 Invar Runtime。它自己也强调 focused, single-surface skills，而不是巨大 monolithic skill。
+
+---
+
+## 33.2 不要复制 A.I.G Agent Framework
+
+A.I.G 已经有自己的：
+
+```text
+Provider Adapter
+ReAct loop
+Skill Worker
+Stage Pipeline
+Reviewer
+Report
+```
+
+但 Invar 已有自己的：
+
+```text
+ResearchCase
+Sandbox
+Evidence
+Invariant
+Verification
+Promotion
+```
+
+两边再各放一套，会形成双重控制面。
+
+---
+
+## 33.3 不要直接搬 30 payload 规则
+
+因为与 Invar 当前预算明显冲突。
+
+---
+
+## 33.4 不要直接把 A.I.G 的 dialogue authorization 当作 API IDOR 判定
+
+这是最大的概念误区。
+
+```text
+A.I.G Authorization
+=
+Agent 能否被对话诱导越权
+
+Claude IDOR
+=
+HTTP 对象引用是否正确绑定授权
+
+Invar 当前任务
+=
+真实 HTTP endpoint 的确定性验证
+```
+
+这三个问题有关联，但并不是同一个问题。
+
+---
+
+# 34. 一个隐藏的重要问题：A.I.G 自己也在不断校准
+
+A.I.G 最新 v4.6.2 / v4.6.3 的演进非常值得我们研究。
+
+v4.6.2 专门修：
+
+```text
+evidence-free false positives
+tool-call stalls
+verdict reconciliation
+```
+
+并增加 FORGE-Bench / RogueHandoff-20。
+
+这说明：
+
+> A.I.G 本身也在从“能扫描”向“可验证、可评估、可基准测试”演进。
+
+这反过来支持我们的路线：
+
+```text
+Skill
+→ Experiment
+→ Benchmark
+→ Evidence
+```
+
+而不是：
+
+```text
+Skill
+→ 感觉更强
+```
+
+---
+
+# 35. A.I.G 当前材料存在版本漂移
+
+这是本次研究必须记录的一个工程风险。
+
+当前 `aig-agent-redteam/SKILL.md` 的 frontmatter 仍标：
+
+```text
+version: 4.0.0
+```
+
+同时它的内容仍列出：
+
+```text
+workflow-attack
+```
+
+模块。
+
+但 A.I.G v4.6.0 release 已明确写：
+
+> `aig-agent-redteam` v5.0.0 mutation engine refactor，并把 workflow-attack 合入 mutation-attack。
+
+### 结论
+
+以后研究外部仓库时不能：
+
+```text
+README
+↓
+直接相信
+```
+
+必须：
+
+```text
+Release
++
+Current Source
++
+Skill Metadata
++
+Changelog
+```
+
+交叉确认。
+
+这正好证明了你给我的“外部技术内容深度解剖协议”是必要的。
+
+---
+
+# 36. 当前 Invar 与外部项目最重要的结构映射
+
+可以先固定成：
+
+```text
+                    Knowledge Plane
+                 ┌──────────────────┐
+                 │ Claude-Red       │
+                 │ IDOR Taxonomy    │
+                 │ Methodology      │
+                 └────────┬─────────┘
+                          │
+                          ▼
+                 Research Planning
+                 ┌──────────────────┐
+                 │ Skill / Hypothesis│
+                 │ Applicability     │
+                 │ Preconditions     │
+                 └────────┬─────────┘
+                          │
+                          ▼
+                  Agent Control Plane
+                 ┌──────────────────┐
+                 │ A.I.G principles │
+                 │ mutation / loop   │
+                 │ next decision     │
+                 └────────┬─────────┘
+                          │
+                          ▼
+                  Invar Execution
+                 ┌──────────────────┐
+                 │ ResearchTask     │
+                 │ Sandbox          │
+                 │ ProbeAttempt     │
+                 └────────┬─────────┘
+                          │
+                          ▼
+                  Invar Evidence
+                 ┌──────────────────┐
+                 │ HTTP Evidence    │
+                 │ Denial Model     │
+                 │ Semantic Eval    │
+                 └────────┬─────────┘
+                          │
+                          ▼
+                 Invar Verification
+                 ┌──────────────────┐
+                 │ Independent      │
+                 │ Verification     │
+                 │ Promotion Gate   │
+                 └──────────────────┘
+```
+
+这个结构目前比任何“直接复制代码”的方案都更清晰。
+
+---
+
+# 37. 为什么现在不应该直接创建 SKILL.md
+
+当前交接目标是：
+
+```text
+POST:/api/v3/delegate/grant
+H-AUTH-1
+```
+
+但现在我们已经看到：
+
+```text
+Claude-Red:
+    IDOR = object-level authorization
+
+A.I.G legacy:
+    Authorization = agent dialogue-level privilege bypass
+
+A.I.G current:
+    Authorization = capability / trust-boundary hypothesis
+```
+
+所以如果现在马上写：
+
+```text
+authorization_investigation/SKILL.md
+```
+
+很容易把三个不同抽象硬揉成一个 Skill。
+
+这正是我们这次“谋定而后动”最应该避免的坑。
+
+---
+
+# 38. 当前真正需要规划的不是一个 Skill，而是一条知识吸收流水线
+
+建议下一阶段形成：
+
+```text
+External Security Research
+        ↓
+Source Extraction
+        ↓
+Mechanism Normalization
+        ↓
+Conflict Analysis
+        ↓
+Invar Mapping
+        ↓
+Minimal Verification
+        ↓
+Approved Knowledge
+        ↓
+Research Skill
+```
+
+其中最关键的一步是：
+
+> **Approved Knowledge**
+
+即：
+
+外部材料不能直接进入生产 Skill。
+
+必须先经过：
+
+```text
+事实确认
++
+机制抽取
++
+与 Invar 契约对照
++
+最小实验
+```
+
+---
+
+# 39. 三方最终机制矩阵：简化版
+
+| 层                       | Claude-Red | A.I.G | Invar  |
+| ----------------------- | ---------- | ----- | ------ |
+| 知识                      | **强**      | 中     | 弱      |
+| 攻击面方法论                  | **强**      | 中     | 弱      |
+| Hypothesis              | 中          | **强** | **强**  |
+| Agent Control           | 弱          | **强** | 中      |
+| HTTP 执行                 | 工具依赖       | 弱/间接  | **强**  |
+| Evidence                | 中          | 强     | **很强** |
+| Differential Analysis   | **强**      | 中     | **强**  |
+| Deterministic Execution | 弱          | 中     | **强**  |
+| Verification            | 弱          | 中     | **很强** |
+| Promotion               | 无          | 弱     | **很强** |
+| Scope Control           | 中          | 强     | **强**  |
+| Benchmark/Testcase      | 中          | **强** | 需要继续加强 |
+| Provenance              | **强**      | 强     | 强      |
+
+---
+
+# 40. 最终三方结论
+
+## Q1：这个内容真正值得学习的东西是什么？
+
+### Claude-Red
+
+学习：
+
+> **如何把成熟安全专家经验变成结构化攻击面 Skill。**
+
+### A.I.G
+
+学习：
+
+> **如何让 Agent 从能力模型出发产生假设，并根据真实反馈进行受控变异。**
+
+### Invar
+
+保留：
+
+> **如何让所有研究结果最终落入确定性证据和验证门禁。**
+
+---
+
+## Q2：背后的底层原理是什么？
+
+三方结合后最小原理是：
+
+```text
+领域知识
+↓
+安全假设
+↓
+最小实验
+↓
+真实反馈
+↓
+单变量变异
+↓
+物理证据
+↓
+不变量判断
+↓
+独立验证
+↓
+最终事实
+```
+
+---
+
+## Q3：哪些与我们当前系统高度相关？
+
+最高相关的不是完整框架，而是：
+
+```text
+Claude-Red:
+    IDOR 方法论 / 对象引用模型 / 差分授权测试
+
+A.I.G:
+    Capability Model
+    Hypothesis
+    Single-variable Mutation
+    Canary Evidence
+    Resisted / Partial / Compromised / Inconclusive
+
+Invar:
+    ResearchCase
+    ProbeAttempt
+    EvidenceRecord
+    DenialModel
+    SemanticEquivalence
+    VerificationGate
+    PromotionGate
+```
+
+---
+
+## Q4：哪些看起来先进，但现在没有必要引入？
+
+暂时不要引入：
+
+```text
+A.I.G 完整 Agent Runtime
+A.I.G 完整 Task Manager
+A.I.G 完整 Reviewer
+A.I.G 完整 Report Engine
+Claude-Red 全量 Skill Corpus
+第二套 Finding 模型
+第二套 Evidence 模型
+第二套 State Machine
+```
+
+---
+
+# 41. 最值得马上做的一个“非编码”动作
+
+不是写 `SKILL.md`。
+
+而是建立一份：
+
+```text
+Authorization Knowledge Normalization Table
+```
+
+把外部材料继续拆成下面这些**标准机制单元**：
+
+```text
+1. Preconditions
+2. Attacker Model
+3. Protected Asset
+4. Subject Identity
+5. Object Reference
+6. Expected Authorization Relation
+7. Baseline
+8. Differential Variable
+9. Mutation Family
+10. Observation
+11. Evidence Requirement
+12. Verdict
+13. Escalation
+14. Stop Condition
+15. Failure / Inconclusive Condition
+16. Provenance
+17. Reproducibility
+```
+
+然后把每一个机制单元分别映射到：
+
+```text
+Claude-Red
+↕
+A.I.G
+↕
+Invar
+```
+
+而不是直接写完整 Skill。
+
+---
+
+# 42. 谋定而后动后的整体路线
+
+我建议我们把整个后续工作锁成五个阶段：
+
+```text
+Phase A
+外部材料考古
+    ↓
+Phase B
+机制标准化矩阵
+    ↓
+Phase C
+与 Invar 契约冲突分析
+    ↓
+Phase D
+最小验证实验
+    ↓
+Phase E
+只有验证成立后
+才正式生成 Skill
+```
+
+现在我们处于：
+
+```text
+Phase A → Phase B
+```
+
+还**没有进入实现阶段**。
+
+这正是当前最稳妥的状态。
+
+---
+
+# 43. 本次研究的最终判断
+
+最值得保留的一句话其实是：
+
+> **我们不要自己发明“IDOR 怎么研究”，而应该把成熟社区/项目已经总结出来的安全知识吸收到 Invar；但我们也不要把外部项目的执行器和裁决器整套搬进来，因为 Invar 已经有自己的确定性核心。**
+
+最终目标不是：
+
+```text
+Invar + Claude-Red + A.I.G
+```
+
+三个仓库简单拼接。
+
+而是：
+
+```text
+Claude-Red
+    ↓
+安全知识
+
+A.I.G
+    ↓
+研究控制思想
+
+Invar
+    ↓
+确定性执行与事实裁决
+```
+
+形成一个：
+
+> **外部成熟知识驱动、Invar 确定性裁决的安全研究系统。**
+
+这才真正符合“复用 > 重造、验证 > 猜测、根因 > 补丁”。
+
+---
+
+有一个额外的工程警示值得单独记住：A.I.G 当前最新 release 已到 v4.6.3，但其 aig-agent-redteam/SKILL.md 元数据仍写 version: 4.0.0，且模块引用与 v4.6.0 的 mutation-engine 演化存在差异。 所以后续任何“拿来主义”都必须以当前具体源码/提交为事实源，不能按 README 或旧 Skill 文本直接迁移。

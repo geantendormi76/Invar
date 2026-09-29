@@ -91,49 +91,11 @@ def convert_to_llm(
     return llm_payloads
 
 
-class ResearchEventType(str, Enum):
-    """
-    强类型科研事件类型枚举 (对齐 pi-agent-core AgentEvent)
-    """
-    LOOP_START = "loop_start"
-    LOOP_END = "loop_end"
-    TURN_START = "turn_start"
-    TURN_END = "turn_end"
-    DENIAL_CLASSIFIED = "denial_classified"
-    VARIANT_SELECTED = "variant_selected"
-    PROBE_DISPATCHED = "probe_dispatched"
-    PROBE_RESPONDED = "probe_responded"
-    DIFFERENTIAL_COMPUTED = "differential_computed"
-    SEMANTIC_EVALUATED = "semantic_evaluated"
-    REPLAY_STARTED = "replay_started"
-    REPLAY_COMPLETED = "replay_completed"
-    STEERING_INJECTED = "steering_injected"
-    LLM_REASONING_STARTED = "llm_reasoning_started"
-    LLM_REASONING_COMPLETED = "llm_reasoning_completed"
-    LLM_REASONING_FAILED = "llm_reasoning_failed"
-    ABORTED = "aborted"
-
-
-@dataclass(frozen=True)
-class ResearchEvent:
-    """
-    可观测性事件实体 (Push-based Event)
-    支持直接序列化并通过 IPC 流式推送到终端或上层调度器
-    """
-    event_type: ResearchEventType
-    payload: Dict[str, Any] = field(default_factory=dict)
-    timestamp: str = field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
-
-    def to_dict(self) -> Dict[str, Any]:
-        return {
-            "event_type": self.event_type.value,
-            "payload": self.payload,
-            "timestamp": self.timestamp,
-        }
-
-
-# 事件汇点接口定义
-ResearchEventSink = Callable[[ResearchEvent], None]
+from harness.domain_contracts import (
+    ResearchEvent,
+    ResearchEventSink,
+    ResearchEventType,
+)
 
 
 class QueueMode(str, Enum):

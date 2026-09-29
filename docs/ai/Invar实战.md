@@ -180,6 +180,8 @@ uv run --project python python python/scripts/assemble_triage_tasks.py `
 ```
 * **核心产物**：`artifacts/reports/targeted_research_tasks.json`（已分配 P0/P1/P2/P3 优先级）
 
+这个阶段就是 LLM 的“高浓度研究种子库（Research Seed Inventory）”，而不是让 LLM 在一次 Prompt 里把 86 个任务全部打包吞下去。
+
 ---
 
 ## 阶段 8：System-2 自适应沙箱受控动态实证

@@ -1,0 +1,1375 @@
+# Authorization Knowledge Normalization Matrix
+
+## Claude-Red IDOR × Tencent A.I.G Authorization × Invar ResearchTask
+
+### 0. 使用规则
+
+本矩阵把外部安全知识统一为 17 个“机制单元”。
+
+标签含义：
+
+* **FACT**：能够直接从源码 / 配置 / 明确测试材料中确认。
+* **INFERENCE**：根据多个 FACT 做出的机制级归一化推导，不是作者原话。
+* **CONFLICT**：两个系统对同一概念的语义、边界或执行方式存在实质差异，需要转换，不能直接复制。
+* **INVAR-EXISTS**：当前 Invar 快照已经存在对应结构或能力。
+* **INVAR-MISSING**：当前快照没有证据表明存在同等级的一等公民契约。
+* **EXPERIMENT**：不能靠静态阅读确认是否值得迁移，必须用实验验证。
+
+本矩阵的一个核心纪律是：
+
+> **“有相似文件”不等于“有相同机制”；“有模块”不等于“契约已经成立”。**
+
+---
+
+# 1. Preconditions —— 适用前提
+
+### Claude-Red
+
+**FACT**
+
+IDOR Skill 明确规定触发范围，包括 IDOR、横向/纵向权限提升、对象枚举、API IDOR、Broken Access Control 等；激活后要求按完整 checklist 执行，并逐项判断当前目标是否适用。
+
+### A.I.G
+
+**FACT**
+
+`authorization-bypass-detection` 要求目标必须具有 roles、permission checks、用户/租户数据或 privileged functions；如果目标根本没有 users / roles / privileged operations，则直接跳过。
+
+新版 A.I.G 又把范围、授权 host、允许工具、敏感数据边界作为测试前置条件。
+
+### Invar
+
+**INVAR-EXISTS**
+
+当前 Invar 已有 `ResearchScope` / authorization boundary / allowed methods 等范围约束。
+
+### 归一化结论
+
+**INFERENCE**
+
+统一机制不是“触发关键词”，而是：
+
+```text
+目标是否具有该安全能力？
+        ↓
+该能力是否在授权范围内？
+        ↓
+该 Skill 是否适用于当前目标？
+```
+
+### 状态
+
+**FACT + INVAR-EXISTS**
+
+### EXPERIMENT
+
+验证当前 Invar 是否真的能做到：
+
+```text
+无授权边界
+→ BLOCK / SKIP
+
+无对象授权能力
+→ 不生成 IDOR ResearchTask
+```
+
+而不是仅仅“配置里存在 scope”。
+
+---
+
+# 2. Attacker Model —— 攻击者模型
+
+### Claude-Red
+
+**FACT**
+
+IDOR 方法要求创建多个测试账户，包括不同权限级别以及同权限的多个账户，并区分 User A / User B。
+
+### A.I.G
+
+**FACT**
+
+旧版 Authorization Skill 重点围绕：
+
+```text
+caller
+other user
+other tenant
+admin
+privileged role
+```
+
+进行授权边界测试。
+
+新版 A.I.G 则要求把攻击者入口、目标能力、可控输入、信任边界明确建模。
+
+### Invar
+
+**INVAR-EXISTS**
+
+当前 ThreatModel 已经有不可变 `AttackerProfile`，而交接材料明确把攻击者身份、角色、能力作为一级契约。
+
+### 归一化结论
+
+**INFERENCE**
+
+最终标准不应是：
+
+```text User A / User B
+```
+
+而应该是：
+
+```text Attacker Principal
+    +
+Role / Tenant / Capability
+    +
+Authorization Boundary
+```
+
+这样才能覆盖普通用户、跨租户、管理员、服务账号等场景。
+
+### 状态
+
+**FACT + INVAR-EXISTS**
+
+---
+
+# 3. Protected Asset —— 受保护资产
+
+### Claude-Red
+
+**FACT**
+
+IDOR 重点关注敏感信息访问、用户数据修改、文件、订单、账户、管理功能等对象。
+
+### A.I.G
+
+**FACT**
+
+A.I.G 将 user-specific / tenant-specific data、admin operations、配置、凭据、业务数据等作为受保护资产。
+
+### Invar
+
+**INVAR-EXISTS / INVAR-MISSING**
+
+Invar 已有 ThreatModel、assets 和 invariants 概念；但从当前快照能够确认的是“资产存在于威胁模型”，尚不能证明已经形成统一的 Authorization Asset 契约。
+
+### 归一化结论
+
+**INFERENCE**
+
+应该把：
+
+```text endpoint
+```
+
+和：
+
+```text protected asset
+```
+
+彻底分离。
+
+例如：
+
+```text POST /delegate/grant
+```
+
+只是入口。
+
+真正的资产可能是：
+
+```text delegation relationship
+tenant membership
+privilege grant
+target user
+```
+
+### 状态
+
+**INVAR-EXISTS（基础） + INVAR-MISSING（专门授权资产模型）**
+
+### EXPERIMENT
+
+验证 `H-AUTH-1` 能否明确回答：
+
+> “这个请求到底保护了什么东西？”
+
+如果只能回答“这个 endpoint”，说明模型还不够。
+
+---
+
+# 4. Subject Identity —— 主体身份
+
+### Claude-Red
+
+**FACT**
+
+User A / User B 是 IDOR 差分测试的核心前提。
+
+### A.I.G
+
+**FACT**
+
+Authorization Skill 直接围绕当前 caller、其他 user、tenant、admin role 进行测试。
+
+### Invar
+
+**INVAR-EXISTS**
+
+ThreatModel 中已经存在 `AttackerProfile`，并包含 role / token_ref / capabilities 等身份信息；因此主体身份并不是完全缺失。
+
+### 归一化结论
+
+**INFERENCE**
+
+授权实验的最小主体模型应至少能够表达：
+
+```text
+principal
+role
+tenant
+credential context
+capabilities
+```
+
+而不能只存：
+
+```text
+token
+```
+
+### 状态
+
+**INVAR-EXISTS**
+
+---
+
+# 5. Object Reference —— 对象引用
+
+这是本矩阵里最值得吸收的机制之一。
+
+### Claude-Red
+
+**FACT**
+
+Claude-Red 对对象引用的识别非常广：
+
+```text
+URL
+body
+cookie
+header
+JWT claims
+signed cookies
+nested JSON
+array
+UUID
+GraphQL
+WebSocket
+mobile deep links
+```
+
+并且不把 `id` 字符串本身当作定义，而是把它视为“可能引用受保护对象的客户端可控值”。
+
+### A.I.G
+
+**FACT**
+
+A.I.G Authorization 没有形成传统 IDOR 的对象引用模型，它主要测试“其他用户/租户资源”和“权限动作”。
+
+### Invar
+
+**INVAR-MISSING / PARTIAL**
+
+当前 Invar 的 TriageDispatcher 已经通过 `id`、`user_id`、`account_id`、`tenant_id` 等字段做 IDOR 候选识别，但这只是参数启发式，不等价于完整 Object Reference Contract。
+
+### 归一化结论
+
+**INFERENCE**
+
+真正应该吸收的是：
+
+> **Object Reference ≠ Parameter Name**
+
+统一抽象应当是：
+
+```text
+ObjectReference
+    ↓
+location
+encoding
+semantic_target
+owner / tenant relation
+controllability
+```
+
+### 状态
+
+**FACT + INVAR-MISSING**
+
+### EXPERIMENT
+
+拿现有 endpoint 样本验证：
+
+```text
+显式 id
+JWT sub
+嵌套 object.id
+header
+path segment
+```
+
+是否能够归一化为同一种“对象引用”。
+
+---
+
+# 6. Expected Authorization Relation —— 预期授权关系
+
+### Claude-Red
+
+**FACT**
+
+IDOR 的核心定义就是验证：
+
+> 当前用户是否有权访问/修改该具体对象。
+
+并区分：
+
+```text horizontal
+vertical
+context-dependent
+```
+
+### A.I.G
+
+**FACT**
+
+新版 A.I.G 要求显式记录：
+
+```text
+trust boundary
+expected defense
+validation method
+```
+
+并把越权定义为身份、角色、项目或租户边界被绕过。
+
+### Invar
+
+**INVAR-EXISTS**
+
+ThreatModel 已存在 expected_controls / invariants；当前验证体系也已经围绕安全不变量进行裁决。
+
+### 归一化结论
+
+**INFERENCE**
+
+授权研究最终应判断：
+
+```text
+(subject, action, object, context)
+        ↓
+expected authorization relation
+        ↓
+observed relation
+```
+
+而不是简单：
+
+```text HTTP 200 = vulnerable
+```
+
+### 状态
+
+**INVAR-EXISTS**
+
+---
+
+# 7. Baseline —— 正常基线
+
+### Claude-Red
+
+**FACT**
+
+明确要求建立正常资源访问行为基线，然后再进行跨用户重放。
+
+### A.I.G
+
+**FACT**
+
+新版方法首先建模正常能力和预期防线，再设计最小攻击实验。
+
+### Invar
+
+**INVAR-EXISTS / INVAR-MISSING**
+
+已有 ResearchCase / ProbeAttempt / EvidenceRecord 可以保存实验历史；当前快照也有正常执行/验证链，但没有明确证据表明“Authorization Baseline”已经成为独立的一等契约。
+
+### 归一化结论
+
+**INFERENCE**
+
+需要区分：
+
+```text
+普通 HTTP baseline
+```
+
+和：
+
+```text Authorization baseline
+```
+
+后者至少应回答：
+
+```text
+User A 对自己的资源能做什么？
+User A 对 User B 的资源应该不能做什么？
+```
+
+### 状态
+
+**INVAR-MISSING**
+
+### EXPERIMENT
+
+为一个授权端点建立 A/A、A/B 两组基线，观察现有 Evidence 是否足以描述授权关系变化。
+
+---
+
+# 8. Differential Variable —— 差分变量
+
+### Claude-Red
+
+**FACT**
+
+经典流程是：
+
+```text
+User A request
+→ User B session
+→ change object reference
+→ compare
+```
+
+### A.I.G
+
+**FACT**
+
+明确要求一次只改变一个变量，例如：
+
+```text role frame
+input carrier
+trust source
+task narrative
+tool path
+data target
+```
+
+并记录下一轮为什么只改变该变量。
+
+### Invar
+
+**INVAR-MISSING / PARTIAL**
+
+`ProbeAttempt` 已有 `mutation_reason` 等实验记录能力，但从当前可见契约不能证明“差分变量”本身是一个结构化字段。
+
+### 归一化结论
+
+**INFERENCE**
+
+应该把：
+
+```text mutation_reason
+```
+
+提升为更清晰的机制语义：
+
+```text DifferentialVariable
+baseline_value
+mutated_value
+reason
+```
+
+但**现在不应直接修改契约**。
+
+### 状态
+
+**INVAR-MISSING**
+
+### EXPERIMENT
+
+先用现有 `ProbeAttempt` 在一个研究案例里记录：
+
+```text only session changes
+only object ID changes
+only role changes
+```
+
+验证当前审计链能否准确重建实验因果。
+
+---
+
+# 9. Mutation Family —— 变异族
+
+### Claude-Red
+
+**FACT**
+
+IDOR Skill 给出大量变异类别：
+
+```text ID replacement
+ID decoding
+method switching
+content-type
+parameter pollution
+path normalization
+API version
+mass assignment
+reference leakage
+```
+
+### A.I.G
+
+**FACT**
+
+新版 Skill 把 mutation operator 作为明确实验来源，并要求记录使用的变异算子。
+
+### Invar
+
+**INVAR-EXISTS（模块层） / INVAR-MISSING（是否统一契约）**
+
+当前仓库已经有 `mutation_policy.py`，说明变异策略模块确实存在；但当前交接材料不足以证明它已经形成与 A.I.G 类似的标准 Mutation Operator Contract。
+
+### 归一化结论
+
+**INFERENCE**
+
+不要复制 Claude-Red 的具体 payload。
+
+应该吸收的是：
+
+```text MutationFamily
+```
+
+例如：
+
+```text identity
+object-reference
+method
+representation
+routing
+context
+parameter-shape
+```
+
+### 状态
+
+**INVAR-EXISTS（部分） + INVAR-MISSING（标准化机制）**
+
+### EXPERIMENT
+
+只挑 2～3 个变异族，验证是否真正产生新的有效 Evidence，而不是增加噪声。
+
+---
+
+# 10. Observation —— 观察结果
+
+### Claude-Red
+
+**FACT**
+
+观察不仅是 HTTP status，还包括：
+
+```text response body
+size
+timing
+error messages
+cache behavior
+side channels
+```
+
+### A.I.G
+
+**FACT**
+
+要求记录完整 response / trace、verdict、defense signal。
+
+### Invar
+
+**INVAR-EXISTS**
+
+EvidenceRecord 与 Denial/Evidence 模型可以记录：
+
+```text status
+headers
+body hash
+content type
+latency
+business code
+business message
+soft denial
+```
+
+### 归一化结论
+
+**FACT**
+
+这一层已经是 Invar 的强项之一。
+
+外部机制不应重新设计 Invar Observation Model。
+
+### 状态
+
+**INVAR-EXISTS**
+
+---
+
+# 11. Evidence Requirement —— 证据要求
+
+### Claude-Red
+
+**FACT**
+
+IDOR 方法要求可靠重现、影响验证、清晰复现步骤和业务影响。
+
+### A.I.G
+
+**FACT**
+
+明确要求每个 finding 必须存在具体证据；动态 finding 要有真实 dialogue / request-response / tool trace。
+
+### Invar
+
+**INVAR-EXISTS**
+
+EvidenceRecord、EvidenceGrade、DenialLayer、SemanticEquivalence、VerificationGate、PromotionGate 已组成完整证据链。
+
+### 归一化结论
+
+**FACT**
+
+这是三方最明确的融合点：
+
+```text
+外部 Skill
+→ 提出“要证明什么”
+
+Invar
+→ 负责“怎么保存证明”
+```
+
+### 状态
+
+**INVAR-EXISTS**
+
+---
+
+# 12. Verdict —— 研究裁决
+
+### Claude-Red
+
+**FACT**
+
+基本结果是：
+
+```text IDOR Found
+No IDOR
+Try Bypass
+```
+
+属于较粗粒度安全结论。
+
+### A.I.G
+
+**FACT**
+
+新 Skill 有：
+
+```text compromised
+partial
+resisted
+skipped
+inconclusive
+```
+
+并定义了每个状态。
+
+### Invar
+
+**INVAR-EXISTS**
+
+当前 ResearchResult / ResearchDecision 已存在 `confirmed`、`inconclusive`、`failed` 等结构化状态。
+
+### 冲突
+
+**CONFLICT**
+
+外部与 Invar 的 verdict vocabulary 不完全一致：
+
+```text A.I.G partial
+≠
+Invar confirmed
+
+A.I.G resisted
+≠
+简单 failed
+```
+
+如果直接复制，会导致语义污染。
+
+### 归一化结论
+
+**INFERENCE**
+
+需要分两层：
+
+```text Observation Verdict
+        ↓
+Security Decision
+```
+
+例如：
+
+```text resisted
+partial
+compromised
+inconclusive
+```
+
+先表示实验结果，再由 Invar 的 deterministic verifier 转成最终安全判定。
+
+### 状态
+
+**CONFLICT + INVAR-EXISTS**
+
+### EXPERIMENT
+
+用已知安全/已知越权的两个实验确认：
+
+```text partial
+→ 应不应该进入 needs_review？
+
+compromised
+→ 是否一定触发 verification？
+```
+
+---
+
+# 13. Escalation —— 升级路径
+
+### Claude-Red
+
+**FACT**
+
+正常 ID 交换失败后，会继续尝试：
+
+```text encoded ID
+method switching
+content type
+parameter pollution
+path normalization
+old API
+mass assignment
+```
+
+### A.I.G
+
+**FACT**
+
+被拒绝后，根据防御信号决定下一步，而且一次只改变一个变量；如果发生不安全动作，则停止继续升级并记录影响。
+
+### Invar
+
+**INVAR-MISSING / PARTIAL**
+
+已有 research loop / mutation policy / multi-run 等相关模块，但当前交接材料不足以证明已经存在一个统一的：
+
+```text EscalationPolicy
+```
+
+### 归一化结论
+
+**INFERENCE**
+
+真正值得吸收的是：
+
+```text failed attempt
+↓
+classify defense signal
+↓
+choose next mutation family
+↓
+bounded escalation
+```
+
+而不是建立无限 payload loop。
+
+### 状态
+
+**INVAR-MISSING**
+
+### EXPERIMENT
+
+先验证两步：
+
+```text baseline denied
+→ single mutation
+```
+
+而不是一次引入完整 bypass payload 库。
+
+---
+
+# 14. Stop Condition —— 停止条件
+
+### Claude-Red
+
+**FACT**
+
+发现成功后记录；没有成功则继续尝试保护绕过，同时关注泄露。
+
+### A.I.G
+
+**FACT**
+
+明确要求：
+
+* 发生不安全动作后停止升级；
+* 超范围 / 能力不足 → skipped；
+* 证据不足 → inconclusive。
+
+### Invar
+
+**INVAR-EXISTS（基础）**
+
+当前已有执行预算、请求上限、mutation rounds 等约束。
+
+### 冲突
+
+**CONFLICT**
+
+A.I.G 的“30+ payload”是它自己的动态测试充分性标准；不能直接变成 Invar 的硬编码请求数量。
+
+A.I.G 明确要求至少 30 条动态 payload，而当前 Invar 的 `max_mutation_rounds=4`、`max_requests_per_task=10`。
+
+### 归一化结论
+
+**INFERENCE**
+
+吸收：
+
+```text bounded research
++
+explicit stop reason
+```
+
+不吸收：
+
+```text fixed number = universal truth
+```
+
+### 状态
+
+**CONFLICT + INVAR-EXISTS**
+
+---
+
+# 15. Failure / Inconclusive —— 失败与无法确定
+
+### Claude-Red
+
+**FACT**
+
+IDOR Skill 更偏向：
+
+```text Not found
+→ bypass
+→ further investigation
+```
+
+它对“不确定”状态的结构化程度较低。
+
+### A.I.G
+
+**FACT**
+
+明确区分：
+
+```text skipped
+inconclusive
+partial
+resisted
+```
+
+### Invar
+
+**INVAR-EXISTS**
+
+ResearchResult 有 `inconclusive`，且 Evidence / Verification 层支持“证据不足不能晋级”。
+
+### 归一化结论
+
+**FACT**
+
+这一机制已经足够成熟，不需要照搬外部状态名。
+
+真正应该吸收的是：
+
+> **“没有发现漏洞”不能自动等于“证明不存在漏洞”。**
+
+### 状态
+
+**INVAR-EXISTS**
+
+---
+
+# 16. Provenance —— 知识与实验来源
+
+### Claude-Red
+
+**FACT**
+
+Skill 明确声明原始来源：
+
+```text
+offensive-checklist/idor.md
+```
+
+并把整个 Skill 作为外部方法论的衍生知识。
+
+### A.I.G
+
+**FACT**
+
+新版 Skill 自己标明作者、仓库、许可证，并要求报告记录 payload 来源、数据集来源、变异算子和 AIG 数据来源。
+
+### Invar
+
+**INVAR-EXISTS（部分）**
+
+当前体系已有 evidence refs、source refs、hypothesis provenance 等概念，但当前快照尚不足以证明“外部安全知识来源”已经成为统一 Skill Provenance 契约。
+
+### 归一化结论
+
+**INFERENCE**
+
+以后每个外部吸收机制至少要记录：
+
+```text
+source_project
+source_file
+source_revision
+source_mechanism
+local_adaptation
+validation_status
+```
+
+这是“拿来主义”能够长期维护的关键。
+
+### 状态
+
+**INVAR-MISSING（统一知识 Provenance 层）**
+
+---
+
+# 17. Reproducibility —— 可重复性
+
+### Claude-Red
+
+**FACT**
+
+它给出了相当完整的重复测试顺序：
+
+```text
+A → capture
+B → replay
+change reference
+read/write
+```
+
+并要求记录复现步骤与影响。
+
+### A.I.G
+
+**FACT**
+
+每个 payload 都要求唯一 ID、来源、变异算子、目标边界、完整请求、完整响应、verdict 和下一步依据。
+
+### Invar
+
+**INVAR-EXISTS**
+
+当前 ResearchCase / ProbeAttempt / EvidenceRecord 已经具备：
+
+```text
+attempt
+payload
+response
+evidence
+decision
+```
+
+等重复实验所需的核心骨架。
+
+### 归一化结论
+
+**FACT**
+
+这是 Invar 可以直接承接外部知识、而无需重新设计基础设施的地方。
+
+真正的缺口不是“能不能记录”。
+
+而是：
+
+> **同一机制是否能在同一授权靶场中被重复重放，并得到一致结论。**
+
+### 状态
+
+**INVAR-EXISTS**
+
+### EXPERIMENT
+
+建立一个：
+
+```text Known-Safe
++
+Known-Broken
+```
+
+授权测试对，重复执行至少两次，看 ResearchCase / Evidence / Verdict 是否稳定。
+
+---
+
+# 18. 17 个机制的最终状态总表
+
+| #  | 机制                              | Claude-Red | A.I.G   | Invar  | 主要标签                           | 当前判断                    |
+| -- | ------------------------------- | ---------- | ------- | ------ | ------------------------------ | ----------------------- |
+| 1  | Preconditions                   | 强          | 强       | 部分已有   | FACT + INVAR-EXISTS            | 应统一前置条件                 |
+| 2  | Attacker Model                  | 强          | 强       | 已有     | FACT + INVAR-EXISTS            | 保留 Invar                |
+| 3  | Protected Asset                 | 强          | 强       | 部分     | FACT + INVAR-MISSING           | 需要授权资产语义                |
+| 4  | Subject Identity                | 强          | 强       | 已有     | FACT + INVAR-EXISTS            | 可直接承接                   |
+| 5  | Object Reference                | **非常强**    | 弱       | 启发式    | FACT + INVAR-MISSING           | **重点缺口**                |
+| 6  | Expected Authorization Relation | 强          | 强       | 已有     | FACT + INVAR-EXISTS            | 核心契约已有                  |
+| 7  | Baseline                        | 强          | 强       | 部分     | FACT + INVAR-MISSING           | 需要授权基线                  |
+| 8  | Differential Variable           | 强          | **非常强** | 部分     | FACT + INVAR-MISSING           | 重点验证                    |
+| 9  | Mutation Family                 | 强          | **非常强** | 部分     | FACT + INVAR-MISSING           | 不直接复制 payload           |
+| 10 | Observation                     | 强          | 强       | **很强** | FACT + INVAR-EXISTS            | 不重造                     |
+| 11 | Evidence Requirement            | 强          | **非常强** | **很强** | FACT + INVAR-EXISTS            | Invar 强项                |
+| 12 | Verdict                         | 粗          | 细       | 已有     | FACT + CONFLICT + INVAR-EXISTS | 必须建立语义映射                |
+| 13 | Escalation                      | 强          | **非常强** | 部分     | FACT + INVAR-MISSING           | 重点研究                    |
+| 14 | Stop Condition                  | 中          | 强       | 已有预算   | FACT + CONFLICT + INVAR-EXISTS | 数值不能照搬                  |
+| 15 | Failure / Inconclusive          | 弱          | 强       | 强      | FACT + INVAR-EXISTS            | 已较成熟                    |
+| 16 | Provenance                      | 强          | 强       | 部分     | FACT + INVAR-MISSING           | 需要 Knowledge Provenance |
+| 17 | Reproducibility                 | 强          | **非常强** | 强      | FACT + INVAR-EXISTS            | 基础设施基本具备                |
+
+---
+
+# 19. 当前最重要的四个 INVAR-MISSING
+
+把整个矩阵压缩后，真正值得进入后续规划的缺口只有四个。
+
+## A. Object Reference Model
+
+当前：
+
+```text
+IDOR candidate
+≈ 参数名启发式
+```
+
+外部成熟材料告诉我们：
+
+```text
+Object Reference
+≠
+id 字段
+```
+
+真正应该验证的是：
+
+```text
+谁控制了这个引用？
+它指向什么资源？
+这个资源属于谁？
+请求主体是否被重新授权？
+```
+
+---
+
+## B. Authorization Baseline
+
+目前 Invar 有正常请求和 HTTP Evidence，但还没有充分证据证明：
+
+```text
+主体
+×
+对象
+×
+动作
+```
+
+形成了结构化授权基线。
+
+---
+
+## C. Differential Variable
+
+A.I.G 给出了非常值得吸收的控制思想：
+
+```text
+一次实验
+→ 一个变量变化
+→ 一个反馈
+→ 一个下一步
+```
+
+当前 Invar 有 mutation_reason，但还没有证明“差分变量”已经是一等契约。
+
+---
+
+## D. Knowledge Provenance
+
+这是未来“拿来主义”能不能长期成功的关键。
+
+我们以后从 GitHub / 论文 / 漏洞报告吸收机制，必须能回答：
+
+```text
+这条研究方法来自哪里？
+哪个版本？
+哪一段源码？
+我们改了什么？
+实验验证了吗？
+```
+
+否则半年以后又会变成：
+
+> “这条规则当初为什么这样写？”
+
+---
+
+# 20. 当前最大的 CONFLICT 只有三个
+
+### CONFLICT 1：A.I.G Authorization ≠ HTTP IDOR
+
+这是最重要的。
+
+```text
+Claude-Red IDOR
+=
+对象级 HTTP 授权问题
+
+A.I.G Authorization
+=
+AI Agent 在对话层的权限越权
+
+Invar 当前 H-AUTH
+=
+真实 endpoint 的确定性安全研究
+```
+
+它们重合的是：
+
+```text authorization boundary
+```
+
+而不是：
+
+```text test protocol
+```
+
+所以必须吸收“授权原则”，而不是直接复制 A.I.G 的 dialogue prompt。
+
+---
+
+### CONFLICT 2：A.I.G verdict ≠ Invar final decision
+
+```text
+compromised
+partial
+resisted
+```
+
+不能直接塞进：
+
+```text confirmed
+inconclusive
+failed
+```
+
+两边属于不同层级。
+
+---
+
+### CONFLICT 3：A.I.G 30+ ≠ Invar 预算
+
+30 是 A.I.G 对自己动态测试流程定义的覆盖要求。
+
+它不是安全研究宇宙中的普适常数。
+
+所以：
+
+> **吸收“充分覆盖”的原则，不吸收“30”这个数字。**
+
+---
+
+# 21. 当前 EXPERIMENT 集合
+
+暂时不要写代码。
+
+按照优先级，后面只需要验证四件事：
+
+### EXP-01：Object Reference
+
+验证现有 Invar 能否把：
+
+```text path ID
+body ID
+nested ID
+JWT subject
+tenant ID
+```
+
+统一成同一种授权对象语义。
+
+### EXP-02：Authorization Baseline
+
+验证能否明确保存：
+
+```text A → own object → allowed
+A → B object → denied
+```
+
+并在 Evidence 层稳定重放。
+
+### EXP-03：Single-variable Mutation
+
+验证：
+
+```text baseline
+→ change only one auth-related variable
+→ evidence
+```
+
+能否在现有 ResearchCase / ProbeAttempt 中完整复原。
+
+### EXP-04：Known-Safe / Known-Broken Reproduction
+
+准备一个明确知道结果的最小靶场：
+
+```text case-safe
+case-broken
+```
+
+重复执行，验证：
+
+```text Skill
+→ ResearchTask
+→ Sandbox
+→ Evidence
+→ Verification
+```
+
+能否稳定得到预期结果。
+
+---
+
+# 22. 最终知识归一化模型
+
+17 个机制最终可以压成六层：
+
+```text
+Layer 1：Scope
+    Preconditions
+    Attacker Model
+    Subject Identity
+
+Layer 2：Authorization Semantics
+    Protected Asset
+    Object Reference
+    Expected Authorization Relation
+
+Layer 3：Experiment Design
+    Baseline
+    Differential Variable
+    Mutation Family
+
+Layer 4：Observation
+    Observation
+    Evidence Requirement
+
+Layer 5：Control
+    Verdict
+    Escalation
+    Stop Condition
+    Failure / Inconclusive
+
+Layer 6：Research Integrity
+    Provenance
+    Reproducibility
+```
+
+然后三方的职责就会非常清楚：
+
+```text
+Claude-Red
+──────────
+主要贡献：
+Layer 2 + Layer 3 的安全知识
+
+A.I.G
+─────
+主要贡献：
+Layer 1 + Layer 3 + Layer 5 的 Agent 研究控制
+
+Invar
+─────
+主要负责：
+Layer 4 + Layer 5 的确定性事实裁决
++
+Layer 6 的实验完整性
+```
+
+这是目前最干净的归一化结果。
+
+---
+
+# 23. 当前阶段结论
+
+**现在还不应该创建最终 `SKILL.md`。**
+
+因为矩阵已经显示，直接写 Skill 会把至少四类不同东西混在一起：
+
+```text
+安全知识
++
+研究控制
++
+实验执行
++
+最终裁决
+```
+
+正确的下一步应该是：
+
+```text
+外部知识
+    ↓
+17 Mechanisms
+    ↓
+6 Layers
+    ↓
+4 Invar Gaps
+    ↓
+4 Minimal Experiments
+    ↓
+验证通过
+    ↓
+才生成 Authorization Skill
+```
+
+这才真正符合“谋定而后动”。
+
+尤其是 **Object Reference、Authorization Baseline、Differential Variable、Knowledge Provenance** 这四个点，我认为已经从“值得讨论”提升到了“必须在下一轮研究中明确验证”的级别。

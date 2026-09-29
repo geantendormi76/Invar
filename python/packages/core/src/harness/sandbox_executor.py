@@ -3,18 +3,13 @@ import re
 from typing import Any, Dict, List, Optional, Tuple
 from urllib.parse import urlparse
 
-from agent.hypothesis_engine import HypothesisEngine, IDOR_KEYWORDS
-from agent.model_provider import OpenAICompatibleProvider
-from agent.research_agent import ResearchAgent
-from harness.adaptive_selector import AdaptiveExperimentSelector
 from harness.config import InvarConfig
 from harness.denial_models import DenialObservation, DeterministicDenialClassifier
+from harness.domain_contracts import IDOR_KEYWORDS
 from harness.evidence import EvidenceRecord, HTTPRequestLog, HTTPResponseLog
-from harness.evidence_models import EvidenceChain, EvidenceVerdict, ReplayRecord
 from harness.feedback import FeedbackInterpreter
 from harness.idor_compare import IdorCompareOperator
 from harness.invariant_evaluator import InvariantEvaluation, InvariantEvaluator
-from harness.method_tamper import MethodTamperOperator
 from harness.models import EndpointIR
 from harness.mutation_policy import MutationPolicy
 from harness.research_evidence import ProbeAttemptEvidenceMapper
@@ -24,20 +19,61 @@ from harness.research_models import (
     ResearchExecutionResult,
     SecurityInvariant,
 )
-from harness.semantic_models import EquivalenceVerdict, SemanticEquivalenceEvaluator
-from harness.transformation_models import TransformationFamilyRegistry
 from harness.transport import HttpTransport
 
 
+
+def _resolve_default_agent(transport, llm_provider):
+    """
+    动态解析默认认知智能体 (用于开箱即用的自适应研究闭环)
+    严格通过 sys.modules / 动态引用获取，彻底消除 harness 顶层反向导入坏味道
+    """
+    try:
+        import sys
+        if "agent.research_agent" in sys.modules:
+            agent_cls = getattr(sys.modules["agent.research_agent"], "ResearchAgent", None)
+        else:
+            import importlib
+            agent_mod = importlib.import_module("agent.research_agent")
+            agent_cls = getattr(agent_mod, "ResearchAgent", None)
+        if agent_cls:
+            return agent_cls(transport=transport, llm_provider=llm_provider)
+    except Exception:
+        pass
+    return None
+
+def _resolve_hypothesis_engine():
+    """动态获取假说推演引擎 (若可用)"""
+    try:
+        import sys
+        if "agent.hypothesis_engine" in sys.modules:
+            return getattr(sys.modules["agent.hypothesis_engine"], "HypothesisEngine", None)
+        import importlib
+        mod = importlib.import_module("agent.hypothesis_engine")
+        return getattr(mod, "HypothesisEngine", None)
+    except Exception:
+        return None
+
 class AdaptiveSandboxExecutor:
+    """
+    Invar 确定性自适应安全沙箱执行器 (Deterministic Adaptive Sandbox Executor)
+    职责范围:
+    1. 纯物理 HTTP 发包与传输编排;
+    2. 基于响应反馈驱动 Payload 变异自愈循环;
+    3. 双主体 (Token A vs Token B) 水平越权差分对比;
+    4. 确定性安全不变量断言;
+    5. [控制反转 IoC]: 接收上层可选的研究智能体 (research_agent)，在遭遇 403 阻断时进行委托探测。
+       沙箱底层自身绝对不反向导入任何 agent 模块！
+    """
+
     def __init__(
         self,
         cfg: Optional[InvarConfig] = None,
         transport: Optional[HttpTransport] = None,
         feedback_interpreter: Optional[FeedbackInterpreter] = None,
         mutation_policy: Optional[MutationPolicy] = None,
-        research_agent: Optional[ResearchAgent] = None,
-        llm_provider: Optional[OpenAICompatibleProvider] = None,
+        research_agent: Optional[Any] = None,
+        llm_provider: Optional[Any] = None,
     ) -> None:
         self.cfg = cfg or InvarConfig()
         self.transport = transport or HttpTransport()
@@ -46,10 +82,7 @@ class AdaptiveSandboxExecutor:
         )
         self.mutation_policy = mutation_policy or MutationPolicy()
         self.llm_provider = llm_provider
-        self.research_agent = research_agent or ResearchAgent(
-            transport=self.transport,
-            llm_provider=self.llm_provider,
-        )
+        self.research_agent = research_agent or _resolve_default_agent(self.transport, self.llm_provider)
 
     def _build_initial_payload(self, endpoint: EndpointIR) -> Dict[str, object]:
         payload: Dict[str, object] = {}
@@ -113,7 +146,6 @@ class AdaptiveSandboxExecutor:
                     statement="Destructive actions must require explicit confirmation",
                 )
             )
-
         is_sensitive = (
             "sensitive-route" in endpoint.tags
             or "admin" in endpoint.tags
@@ -129,7 +161,6 @@ class AdaptiveSandboxExecutor:
                     statement="Sensitive administration routes must enforce authentication",
                 )
             )
-
         has_idor_param = any(
             any(k in p.lower() for k in IDOR_KEYWORDS)
             for p in endpoint.extracted_params
@@ -141,8 +172,10 @@ class AdaptiveSandboxExecutor:
                     statement="Object identifiers must enforce cross-tenant authorization",
                 )
             )
-
-        HypothesisEngine.attach_to_case(case)
+        
+        hyp_engine = _resolve_hypothesis_engine()
+        if hyp_engine and hasattr(hyp_engine, "attach_to_case"):
+            hyp_engine.attach_to_case(case)
         return case
 
     def _research_denial_loop(
@@ -155,6 +188,10 @@ class AdaptiveSandboxExecutor:
         last_response: Any,
         last_status_code: int,
     ) -> Tuple[Any, int]:
+        # 严格防御卫语句: 若未注入外部智能体，沙箱不执行上层自主调查，直接返回物理事实
+        if self.research_agent is None or not hasattr(self.research_agent, "investigate_denial"):
+            return last_response, last_status_code
+
         baseline_obs = DenialObservation(
             status_code=last_status_code,
             response_headers=dict(last_response.headers) if last_response else {},
@@ -162,9 +199,9 @@ class AdaptiveSandboxExecutor:
         )
         classification = DeterministicDenialClassifier.classify(baseline_obs)
         research_case.metadata["denial_classification"] = classification.to_dict()
-
+        
         self.research_agent.transport = self.transport
-        if self.llm_provider and not self.research_agent.config.llm_provider:
+        if self.llm_provider and hasattr(self.research_agent, "config") and not getattr(self.research_agent.config, "llm_provider", None):
             self.research_agent.config.llm_provider = self.llm_provider
 
         loop_res = self.research_agent.investigate_denial(
@@ -173,7 +210,6 @@ class AdaptiveSandboxExecutor:
             baseline_observation=baseline_obs,
             classification=classification,
         )
-
         research_case.metadata["agent_turns_executed"] = loop_res.turns_executed
         research_case.metadata["agent_breakthrough"] = loop_res.breakthrough_achieved
         research_case.metadata["agent_final_verdict"] = loop_res.final_verdict.value
@@ -183,17 +219,14 @@ class AdaptiveSandboxExecutor:
             )
         if "llm_error" in loop_res.context.metadata:
             research_case.metadata["llm_error"] = loop_res.context.metadata["llm_error"]
-
         if loop_res.breakthrough_achieved and loop_res.evidence_chain:
             applied = loop_res.evidence_chain.applied_variant
             cand_obs = loop_res.evidence_chain.candidate_observation
             last_status_code = cand_obs.status_code
-
             class BreakthroughResponseMock:
                 status_code = cand_obs.status_code
                 headers = dict(cand_obs.response_headers)
                 text = cand_obs.body_preview
-
             last_response = BreakthroughResponseMock()
             research_case.record_attempt(
                 payload=applied.payload,
@@ -203,7 +236,6 @@ class AdaptiveSandboxExecutor:
                 mutation_reason=f"变异算子生效: {applied.rationale}",
             )
             research_case.metadata["evidence_chain"] = loop_res.evidence_chain.to_dict()
-
         return last_response, last_status_code
 
     def _detect_soft_denial(self, response: Any) -> bool:
@@ -228,7 +260,6 @@ class AdaptiveSandboxExecutor:
         payload = self._build_initial_payload(endpoint)
         research_case = self._create_research_case(endpoint)
         last_response = None
-
         for _ in range(int(self.cfg.max_mutation_rounds)):
             try:
                 response = self.transport.request(
@@ -262,7 +293,6 @@ class AdaptiveSandboxExecutor:
                     research_case=research_case,
                     evidence_history=[],
                 )
-
             last_response = response
             feedback = self.feedback_interpreter.interpret(
                 response.status_code,
@@ -281,7 +311,6 @@ class AdaptiveSandboxExecutor:
                     and not feedback.has_unmarshal_error
                 )
             )
-
             if contract_passed:
                 research_case.record_attempt(
                     payload=payload,
@@ -291,7 +320,6 @@ class AdaptiveSandboxExecutor:
                     mutation_reason="",
                 )
                 break
-
             mutation = self.mutation_policy.mutate(payload, feedback)
             if mutation.changed:
                 research_case.record_attempt(
@@ -303,7 +331,6 @@ class AdaptiveSandboxExecutor:
                 )
                 payload = mutation.payload
                 continue
-
             research_case.record_attempt(
                 payload=payload,
                 status_code=response.status_code,
@@ -312,7 +339,6 @@ class AdaptiveSandboxExecutor:
                 mutation_reason=mutation.reason,
             )
             break
-
         if not research_case.attempts:
             evidence = EvidenceRecord(
                 endpoint=endpoint,
@@ -337,13 +363,11 @@ class AdaptiveSandboxExecutor:
                 research_case=research_case,
                 evidence_history=[],
             )
-
         last_status_code = last_response.status_code if last_response is not None else 0
         is_destruct_or_auth = any(
             h.hypothesis_id.startswith(("H-DESTRUCT", "H-AUTH", "H-IDOR"))
             for h in research_case.hypotheses
         )
-
         if (
             (last_status_code in {403, 405} or self._detect_soft_denial(last_response))
             and (is_destruct_or_auth or bool(research_case.invariants))
@@ -357,7 +381,6 @@ class AdaptiveSandboxExecutor:
                 last_response=last_response,
                 last_status_code=last_status_code,
             )
-
         idor_eval: Optional[InvariantEvaluation] = None
         has_idor_inv = any(inv.invariant_type == "idor_boundary" for inv in research_case.invariants)
         if has_idor_inv and self.cfg.auth_token_b and last_response is not None and (200 <= last_status_code <= 299):
@@ -389,11 +412,9 @@ class AdaptiveSandboxExecutor:
                     status="inconclusive",
                     rationale=f"主体 B 越权探针发包异常: {str(exc)}",
                 )
-
         evaluations: List[InvariantEvaluation] = []
         last_response_text = last_response.text if last_response is not None else ""
         is_soft = self._detect_soft_denial(last_response) if last_response is not None else False
-
         for inv in research_case.invariants:
             if inv.invariant_type == "idor_boundary":
                 if idor_eval is not None:
@@ -419,7 +440,10 @@ class AdaptiveSandboxExecutor:
                     )
                 )
 
-        HypothesisEngine.resolve_hypotheses(research_case, evaluations)
+        hyp_engine = _resolve_hypothesis_engine()
+        if hyp_engine and hasattr(hyp_engine, "resolve_hypotheses"):
+            hyp_engine.resolve_hypotheses(research_case, evaluations)
+
         decision = InvariantEvaluator.evaluate_case(
             case=research_case,
             status_code=last_status_code,
@@ -438,7 +462,6 @@ class AdaptiveSandboxExecutor:
                 ),
             )
             research_case.set_decision(decision)
-
         evidence_history = ProbeAttemptEvidenceMapper.to_evidence_records(
             research_case=research_case,
             url=url,
@@ -448,13 +471,11 @@ class AdaptiveSandboxExecutor:
             evidence_history[-1].response.headers = dict(
                 last_response.headers
             )
-
         final_evidence = evidence_history[-1]
         if decision is not None and decision.status == "vulnerable":
             final_evidence.is_anomaly = True
             final_evidence.finding_type = "VULNERABILITY_FOUND"
             final_evidence.notes = f"{final_evidence.notes} | [VULNERABILITY] {decision.rationale}"
-
         return ResearchExecutionResult(
             evidence=final_evidence,
             research_case=research_case,

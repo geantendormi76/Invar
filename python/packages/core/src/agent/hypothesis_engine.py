@@ -3,10 +3,7 @@ from harness.invariant_evaluator import InvariantEvaluation
 from harness.models import EndpointIR
 from harness.research_models import Hypothesis, ResearchCase
 
-IDOR_KEYWORDS: Set[str] = {
-    "id", "user_id", "uid", "account_id", "order_id",
-    "member_id", "customer_id", "tenant_id", "doc_id"
-}
+from harness.domain_contracts import IDOR_KEYWORDS
 
 
 class HypothesisEngine:

@@ -2010,3 +2010,168 @@ class EvidenceGate:
                 f"EvidenceChain failed confirmation predicates! Current verdict: [{actual_verdict.value}]. "
                 "Reasons may include unverified scope, unstable replay, unviolated invariant, or missing independent review."
             )
+
+# ==========================================================================
+# 11. 可观测性科研事件与汇点协议 (Observability Events & Sink Protocol)
+# ==========================================================================
+class ResearchEventType(str, Enum):
+    """
+    强类型科研事件类型枚举 (对齐 pi-agent-core AgentEvent)
+    """
+    LOOP_START = "loop_start"
+    LOOP_END = "loop_end"
+    TURN_START = "turn_start"
+    TURN_END = "turn_end"
+    DENIAL_CLASSIFIED = "denial_classified"
+    VARIANT_SELECTED = "variant_selected"
+    PROBE_DISPATCHED = "probe_dispatched"
+    PROBE_RESPONDED = "probe_responded"
+    DIFFERENTIAL_COMPUTED = "differential_computed"
+    SEMANTIC_EVALUATED = "semantic_evaluated"
+    REPLAY_STARTED = "replay_started"
+    REPLAY_COMPLETED = "replay_completed"
+    STEERING_INJECTED = "steering_injected"
+    LLM_REASONING_STARTED = "llm_reasoning_started"
+    LLM_REASONING_COMPLETED = "llm_reasoning_completed"
+    LLM_REASONING_FAILED = "llm_reasoning_failed"
+    ABORTED = "aborted"
+
+
+@dataclass(frozen=True)
+class ResearchEvent:
+    """
+    可观测性事件实体 (Push-based Event)
+    支持直接序列化并通过 IPC 流式推送到终端或上层调度器
+    """
+    event_type: ResearchEventType
+    payload: Dict[str, Any] = field(default_factory=dict)
+    timestamp: str = field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "event_type": self.event_type.value,
+            "payload": self.payload,
+            "timestamp": self.timestamp,
+        }
+
+
+# 事件汇点接口定义
+from typing import Callable
+ResearchEventSink = Callable[[ResearchEvent], None]
+
+# ==========================================================================
+# 12. 静态分析领域常量 (Static Analysis Domain Constants)
+# ==========================================================================
+IDOR_KEYWORDS: Set[str] = {
+    "id", "user_id", "uid", "account_id", "order_id",
+    "member_id", "customer_id", "tenant_id", "doc_id"
+}
+
+# ==========================================================================
+# 13. 威胁模型一级契约 (First-Class Threat Model Contract)
+# ==========================================================================
+@dataclass(frozen=True)
+class AttackerProfile:
+    """
+    攻击者身份与主体画像 (Attacker Profile)
+    明确威胁发起者的身份凭据状态、主体权限等级与能力范围 (不可变不可篡改)
+    """
+    role: str  # 例如: "anonymous_external", "authenticated_tenant", "internal_unprivileged"
+    token_ref: Optional[str] = None
+    description: str = ""
+    capabilities: List[str] = field(default_factory=list)
+
+    def to_dict(self) -> Dict[str, Any]:
+        return asdict(self)
+
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any]) -> "AttackerProfile":
+        return cls(**data)
+
+
+@dataclass
+class ThreatModel:
+    """
+    Invar 权威威胁模型一级契约 (Canonical Threat Model)
+    对标 Anthropic Reference Harness 与 Strix 黄金标准，
+    在任何 Agent 扫描与假说推演之前，确立目标系统攻击面、主体凭据、信任边界与安全不变量底线。
+    """
+    model_id: str
+    title: str
+    attacker: AttackerProfile
+    assets: List[str] = field(default_factory=list)
+    trust_boundaries: List[str] = field(default_factory=list)
+    entrypoints: List[str] = field(default_factory=list)
+    expected_controls: List[str] = field(default_factory=list)
+    invariants: List[SecurityInvariant] = field(default_factory=list)
+    metadata: Dict[str, Any] = field(default_factory=dict)
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "model_id": self.model_id,
+            "title": self.title,
+            "attacker": self.attacker.to_dict(),
+            "assets": list(self.assets),
+            "trust_boundaries": list(self.trust_boundaries),
+            "entrypoints": list(self.entrypoints),
+            "expected_controls": list(self.expected_controls),
+            "invariants": [
+                {
+                    "invariant_type": inv.invariant_type,
+                    "statement": inv.statement,
+                }
+                for inv in self.invariants
+            ],
+            "metadata": dict(self.metadata),
+        }
+
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any]) -> "ThreatModel":
+        data_copy = dict(data)
+        raw_attacker = data_copy.get("attacker", {})
+        data_copy["attacker"] = (
+            AttackerProfile.from_dict(raw_attacker)
+            if isinstance(raw_attacker, dict)
+            else raw_attacker
+        )
+        data_copy["invariants"] = [
+            SecurityInvariant(**inv) if isinstance(inv, dict) else inv
+            for inv in data_copy.get("invariants", [])
+        ]
+        return cls(**data_copy)
+
+    def validate(self) -> List[str]:
+        """
+        断言威胁模型核心结构合法性与完备性
+        """
+        errors = []
+        if not self.model_id or not str(self.model_id).strip():
+            errors.append("ThreatModel model_id cannot be empty")
+        if not self.title or not str(self.title).strip():
+            errors.append("ThreatModel title cannot be empty")
+        if not self.attacker or not self.attacker.role:
+            errors.append("ThreatModel attacker role must be specified")
+        if not self.assets:
+            errors.append("ThreatModel must specify at least one protected asset")
+        if not self.trust_boundaries:
+            errors.append("ThreatModel must define at least one trust boundary")
+        return errors
+
+    def derive_hypothesis(
+        self,
+        hypothesis_id: str,
+        statement: str,
+        rationale: str = "",
+    ) -> Hypothesis:
+        """
+        从当前威胁模型受控派生出标准的科研假说 (Research Hypothesis)，建立明确溯源依据
+        """
+        prefix = f"[ThreatModel: {self.model_id}] (Attacker: {self.attacker.role})"
+        full_rationale = f"{prefix} {rationale}".strip()
+        return Hypothesis(
+            hypothesis_id=hypothesis_id,
+            statement=statement,
+            rationale=full_rationale,
+            status="PROPOSED",
+        )
+
