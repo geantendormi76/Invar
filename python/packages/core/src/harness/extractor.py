@@ -121,7 +121,7 @@ class JSEndpointExtractor:
 
         if path and (path.startswith("/") or "http" in path or "/" in path):
             is_dynamic = "{" in path or "}" in path or "$" in path
-            return EndpointIR(
+            endpoint = EndpointIR(
                 method=method,
                 path=path,
                 source_file=file_path,
@@ -131,4 +131,26 @@ class JSEndpointExtractor:
                 call_signature=call_sig,
                 tags=[]
             )
+            ctx = self._resolve_call_context(node)
+            if ctx is not None:
+                endpoint.call_contexts = [ctx]
+            return endpoint
         return None
+
+    def _resolve_call_context(self, node):
+        """Phase 1：若调用点第二参量为标识符，恢复业务调用上下文（business_name + 内联对象字段）。
+
+        不修改 EndpointIR 数据类字段；结果挂到 endpoint.call_contexts（纯 Python 实例属性）。
+        第二参量非标识符、或本地作用域无法解析为 object 时返回 None / unresolved，绝不猜测。
+        """
+        try:
+            from .business_context import CallContextResolver
+        except Exception:
+            return None
+        args = node.child_by_field_name("arguments")
+        if args is None:
+            return None
+        id_args = [a for a in args.children if a.type == "identifier"]
+        if not id_args:
+            return None
+        return CallContextResolver().resolve(node, id_args[0].text.decode("utf-8"))

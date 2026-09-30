@@ -15,9 +15,9 @@ $optimizedArgs = @(
     "-fa", "on",
 
     # 3. 上下文与批处理
-    "-c", "160000",                  # 先以 170K 起步，为 MTP 投机头预留 ~2GB 动态演算显存
-    "--cache-type-k", "q8_0",
-    "--cache-type-v", "q8_0",
+    "-c", "160000",                  # 先以 160K 起步，为 MTP 投机头预留 ~2GB 动态演算显存
+    "--cache-type-k", "q4_0",
+    "--cache-type-v", "q4_0",
     "-b", "2048",
     "-ub", "1024",
     "--parallel", "1",

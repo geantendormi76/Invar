@@ -113,10 +113,6 @@ class OpenAICompatibleProvider:
         try:
             choice = raw_resp["choices"][0]
             finish_reason = choice.get("finish_reason")
-            if finish_reason != "stop":
-                raise ModelProviderError(
-                    f"LLM output incomplete: finish_reason={finish_reason}"
-                )
             msg = choice.get("message", {})
             content = msg.get("content") or ""
         except (KeyError, IndexError):
@@ -125,6 +121,49 @@ class OpenAICompatibleProvider:
         if not content:
             raise ModelProviderError("LLM returned no final content")
 
+        # finish_reason 闸门：length 是唯一允许进入恢复流程的非 stop 取值。
+        if finish_reason == "stop":
+            try:
+                decoded = self._extract_json_object(content)
+            except ModelProviderError:
+                raise
+            if not isinstance(decoded, dict):
+                raise ModelProviderError("LLM structured output must be a JSON object")
+            return decoded
+
+        if finish_reason == "length":
+            # Step 1: 先尝试直接解析原始 content。
+            try:
+                decoded = self._extract_json_object(content)
+            except ModelProviderError:
+                # 解析失败 -> 至多一次 continuation 恢复。
+                return self._recover_length_truncation(
+                    messages=messages,
+                    partial_content=content,
+                    temperature=temperature,
+                    max_tokens=max_tokens,
+                )
+            # 成功解析：非 object 有明确错误，dict 直接返回（不因 length 而无条件失败）。
+            if not isinstance(decoded, dict):
+                raise ModelProviderError("LLM structured output must be a JSON object")
+            return decoded
+
+        # 其他 finish_reason：立即失败，即使 content 恰好是合法 JSON 也不绕过闸门。
+        raise ModelProviderError(
+            f"LLM output incomplete: finish_reason={finish_reason}"
+        )
+
+    def _extract_json_object(self, content: str) -> Any:
+        """复用现有 JSON 清洗 / raw_decode 逻辑。
+
+        返回/异常契约（无 None 哨兵，避免与合法 JSON null 冲突）：
+        * 解析失败（无 JSON / JSONDecodeError）-> 抛出 ModelProviderError；
+        * 解析成功 -> 返回解析值（可为 dict / list / null 等任意类型）。
+        调用方负责用 isinstance(x, dict) 区分“合法非 object”与成功 dict。
+
+        注意：raw_decode 只解析第一个 JSON 值并容忍尾部多余内容，因此对
+        截断/补全拼接场景是“语法合法即接受”，不做括号补全或语义补全。
+        """
         # 1. 过滤思维链标记
         clean_text = re.sub(r"<thought>.*?</thought>", "", content, flags=re.DOTALL)
         clean_text = re.sub(r"<think>.*?</think>", "", clean_text, flags=re.DOTALL).strip()
@@ -133,19 +172,67 @@ class OpenAICompatibleProvider:
         json_match = re.search(r"```(?:json)?\s*(\{.*?\})\s*```", clean_text, flags=re.DOTALL)
         try:
             if json_match:
-                decoded = json.loads(json_match.group(1))
-            else:
-                first_brace = clean_text.find("{")
-                if first_brace == -1:
-                    raise ModelProviderError("LLM output contains no JSON object")
-                decoded, _ = json.JSONDecoder().raw_decode(
-                    clean_text[first_brace:]
-                )
+                return json.loads(json_match.group(1))
+            first_brace = clean_text.find("{")
+            if first_brace == -1:
+                raise ModelProviderError("LLM output contains no JSON object")
+            return json.JSONDecoder().raw_decode(clean_text[first_brace:])[0]
         except json.JSONDecodeError as exc:
             raise ModelProviderError(
                 f"Failed to extract valid JSON from LLM output: {exc}. Cleaned content was: {clean_text[:200]}"
             ) from exc
 
+    def _recover_length_truncation(
+        self,
+        messages: List[Dict[str, str]],
+        partial_content: str,
+        temperature: float,
+        max_tokens: int,
+    ) -> Dict[str, Any]:
+        """finish_reason=length 且直接解析失败时的有限恢复。
+
+        至多一次 continuation：不修改原始 messages，基于其创建新消息列表，
+        把第一次输出作为 assistant 前缀，并追加“只续写剩余 JSON 后缀”的指令。
+        continuation 不传 response_format（模型只返回后缀，不返回新完整 object）。
+        拼接 original + continuation 后重走统一解析；任何情况不返回部分 dict。
+        """
+        continuation_messages = list(messages) + [
+            {"role": "assistant", "content": partial_content},
+            {"role": "user", "content": (
+                "You already emitted part of a JSON object but was cut off by a token "
+                "limit. Continue ONLY the remaining JSON suffix from the point you stopped. "
+                "Do NOT repeat the already-emitted prefix, do NOT re-emit a full JSON "
+                "object, do NOT add explanation or fields unrelated to the original task. "
+                "Output ONLY the characters needed to complete the JSON."
+            )},
+        ]
+
+        # 至多一次 continuation（不循环、不递归重试）。
+        continuation_resp = self.chat_completion(
+            messages=continuation_messages,
+            temperature=temperature,
+            max_tokens=max_tokens,
+            response_format=None,
+            enable_thinking=False,
+        )
+        try:
+            choice = continuation_resp["choices"][0]
+            c_content = choice.get("message", {}).get("content") or ""
+        except (KeyError, IndexError):
+            raise ModelProviderError(
+                "Malformed LLM continuation response: missing choices[0].message"
+            )
+
+        # Step 3: 拼接 original + continuation 后重走统一解析。
+        # 解析失败（异常）-> recovery failure；成功但非 object -> object 错误。
+        try:
+            decoded = self._extract_json_object(partial_content + c_content)
+        except ModelProviderError:
+            raise ModelProviderError(
+                "LLM length truncation recovery failed: first finish_reason=length and "
+                "a single continuation did not yield a parseable JSON object. "
+                "combined content was: {(partial_content + c_content)[:200]}"
+            )
         if not isinstance(decoded, dict):
             raise ModelProviderError("LLM structured output must be a JSON object")
         return decoded
