@@ -2034,6 +2034,9 @@ class ResearchEventType(str, Enum):
     LLM_REASONING_STARTED = "llm_reasoning_started"
     LLM_REASONING_COMPLETED = "llm_reasoning_completed"
     LLM_REASONING_FAILED = "llm_reasoning_failed"
+    CONTROL_DECISION_REQUESTED = "control_decision_requested"
+    CONTROL_DECISION_COMPLETED = "control_decision_completed"
+    CONTROL_DECISION_REJECTED = "control_decision_rejected"
     ABORTED = "aborted"
 
 

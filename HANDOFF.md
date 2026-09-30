@@ -1,34 +1,37 @@
 # AI Development Handoff Specification
 
-> **Document Type:** Cross-session Engineering State Snapshot / Recovery Contract  
-> **Project:** Invar  
-> **Snapshot Date:** 2026-09-30  
-> **Snapshot Time:** 18:46 +08:00 (conversation-local timestamp; exact repository inspection time is UNKNOWN)  
-> **Canonical Repository Root:** `C:\dev\Invar`  
-> **Canonical Handoff Path:** `C:\dev\Invar\HANDOFF.md`  
-> **Snapshot Authority:** latest available source/test/config/runtime evidence in the current conversation and accessible project records; current local worktree itself is not directly mounted in this AI session.
+> **Document Type:** Cross-session Engineering State Snapshot / Recovery Contract
+>
+> **Project:** Invar
+>
+> **Snapshot Date:** 2026-10-01
+>
+> **Canonical Repository Root:** `C:\dev\Invar`
+>
+> **Canonical Handoff Path:** `C:\dev\Invar\HANDOFF.md`
+>
+> **Snapshot Authority:** latest accessible source snapshot, test results, implementation reports, runtime configuration supplied in the current engineering session, and verified upstream documentation. The live local worktree is not mounted in this AI session; therefore current Git state and the final post-interruption source state are explicitly marked `UNKNOWN` where applicable.
 
 ---
 
 ## 0. Handoff Metadata
 
-| Item | Value | Level | Evidence / Note |
+| Item | Value | Level | Evidence |
 |---|---|---|---|
-| Project | Invar | [FACT] | Repository root is `C:\dev\Invar`. |
-| Primary role | System-2 深度动态实证 / 安全研究 Harness | [FACT] | Established project architecture and current Stage-8 execution flow. |
-| Active target | `ikuai8.com` | [FACT] | Project target scope entry is `data\targets\ikuai8.com\scope.txt`. |
-| Current stage | Phase 8 / Stage 8 — System-2 targeted dynamic research | [FACT] | Stages 3–7 artifacts and Stage-8 P0 execution are evidenced. |
-| Current objective | 修正并验证 `run_targeted_audit.py` 的 Coverage Unit 聚合语义，使多 task 共享同一 `coverage_id` 时按“全部计划 task 完成后再最终裁决”收敛 | [DECISION] | This supersedes the older Pi Runtime R1-0 objective. |
-| Current next action | 只验证当前 `run_targeted_audit.py` Coverage 聚合修复：查看最新 diff + 运行最小覆盖聚合契约测试 + `git diff --check`，不得进入真实 P0 重跑 | [TODO] | Exact latest implementation result has not yet been returned in the available record. |
-| Latest Provider verification | 11 passed in 0.12s | [FACT, 2026-09-30] | Latest available Provider-specific verification after the `finish_reason=length` fix. |
-| Latest P0 real run | 10 tasks / 6 coverage units / 1 covered / 5 blocked / 0 findings | [FACT, 2026-09-30] | Existing production audit output. |
-| Latest P0 coverage | 16.67% | [FACT, 2026-09-30] | Consistent with checkpoint metrics; known to be distorted by runner aggregation bug. |
-| Vulnerability findings | 0 | [FACT, 2026-09-30] | No task reached `decision.status == vulnerable` in that run. |
-| Current branch | UNKNOWN | [UNKNOWN] | No direct live Git worktree in this AI session. |
-| Current commit | UNKNOWN | [UNKNOWN] | Must be verified locally. |
-| Current worktree | UNKNOWN | [UNKNOWN] | Historical Git snapshots exist but are not current authority. |
-| Current full-suite result | UNKNOWN | [UNKNOWN] | Historical 207 Python + 15 Rust exists; not rerun after latest modifications. |
-| Old Pi R1-0 objective | SUPERSEDED | [DECISION] | Earlier handoff focused on direct Pi Runtime API identity; latest work has moved back to Stage-8 audit correctness. |
+| Project | Invar | [FACT] | Repository context |
+| Root | `C:\dev\Invar` | [FACT] | Project context |
+| Current system role | System-2 deep dynamic security research / evidence Harness | [FACT] | Existing project architecture |
+| Long-term mission | AI-controlled authorized security research with deterministic execution, evidence, independent verification, and promotion | [DECISION] | Project direction |
+| Current primary workstream | Invar Research Control Plane / autonomous research control | [DECISION] | Current session direction |
+| Historical Stage-8 runner objective | Coverage Unit aggregation | [DECISION] / SUPERSEDED | Previous HANDOFF; not current mainline |
+| Active authorized research target | `ikuai8.com` | [FACT, historical project scope] | Existing scope records |
+| Current Git branch | `UNKNOWN` | [UNKNOWN] | No live worktree |
+| Current HEAD | `UNKNOWN` | [UNKNOWN] | No live worktree |
+| Current worktree status | `UNKNOWN` | [UNKNOWN] | No live worktree |
+| Current full regression | `UNKNOWN` | [UNKNOWN] | Not rerun after latest Control Plane changes |
+| Last known good Control Plane test | 18 passed in 0.12s | [FACT] | Session test output |
+| Current final Progress Guard implementation | `UNKNOWN` | [UNKNOWN] | Pi response was interrupted during implementation |
+| Temporary repair helper `tools/fix_control_plane_budget.py` | `UNKNOWN / untrusted` | [UNKNOWN] | Two generated versions failed with Python SyntaxError before execution |
 
 ---
 
@@ -38,9 +41,9 @@
 
 [FACT]
 
-Invar is the current System-2 research and dynamic evidence engine in a broader AI engineering / security research stack.
+Invar is the System-2 dynamic research and security evidence engine in the broader project.
 
-The implemented security evidence chain is:
+Its intended evidence path is:
 
 ```text
 Asset / Source / Endpoint IR
@@ -59,28 +62,35 @@ Independent Verification
         ↓
 Finding / Knowledge
         ↓
-SARIF / OpenVEX / Markdown
+Reporting / Promotion
 ```
+
+The system is **not** defined as “an LLM scans code and declares vulnerabilities.”
 
 ### 1.2 Engineering Constitution
 
 [DECISION]
 
-The project follows these engineering rules:
+The project follows:
 
 ```text
-有依据才实现
-有抽象才扩展
-有测试才交付
 零臆造
-根因优先于补丁
-目录 / 类型 / 接口视为边界
-一次只推进一个逻辑动作
+零盲目建目录
+零破坏性删除
+测试验证方可交付
+
+事实 > 猜测
+根因 > 补丁
+抽象 > 特判
+契约 > 约定
+复用 > 重造
+验证 > 猜测
+系统最优 > 局部最优
 ```
 
-Temporary archaeology belongs under `tmp/`.
+The Clean & Deliver Protocol is the engineering baseline:
 
-Normal engineering checks should not use long inline `python -c` commands.
+> 有依据才实现，有抽象才扩展，有契约才连接，有测试才交付。
 
 ---
 
@@ -88,35 +98,25 @@ Normal engineering checks should not use long inline `python -c` commands.
 
 [DECISION]
 
-The long-term mission is:
-
-> 建立一个由 AI 研究控制层驱动、由确定性安全核心执行和裁决、由证据与独立验证最终闭环的 Invar 真实漏洞研究系统，并完成第一次可复现的真实漏洞研究闭环。
-
-Current implemented capability is not yet the full intended autonomous research control plane.
-
-The current effective path is:
+Build an AI-research-control-driven authorized security research system in which:
 
 ```text
-Static / Seeded Research Inputs
+AI decides only within bounded research authority
         ↓
-System-1 triage
+deterministic Invar core executes the experiment
         ↓
-Targeted Research Tasks
+real observation is collected
         ↓
-System-2 AdaptiveSandboxExecutor
+deterministic evaluation interprets it
         ↓
-ResearchAgent / ResearchLoop
+evidence is recorded
         ↓
-Deterministic evaluation
+independent verification remains separate
         ↓
-Optional LLM reflection fallback
-        ↓
-Evidence / Trace
-        ↓
-Reporting / Promotion
+finding / knowledge can be promoted
 ```
 
-The project must not be reinterpreted as “an LLM scans code and declares vulnerabilities.”
+The immediate product direction is AI-assisted authorized Bug Bounty / SRC research, with human review retained before any external submission.
 
 ---
 
@@ -126,85 +126,41 @@ The project must not be reinterpreted as “an LLM scans code and declares vulne
 
 [DECISION]
 
-> **修正并验证 `python/scripts/run_targeted_audit.py` 的 Coverage Unit 聚合状态机，使多个 task 共享同一 `coverage_id` 时，runner 不再被第一个 `INCONCLUSIVE`/`BLOCKED` task 锁死，而是累计该 coverage unit 的全部 task 事实，在全部计划 task 完成后再决定 `CANDIDATE` / `BLOCKED` / `COVERED`。**
+**Stabilize and continue the Invar Control Plane mainline from its last known-good Observation-feedback state, without introducing the currently rejected `no_progress` heuristic.**
 
-### Why this is the current objective
-
-[FACT]
-
-The latest real P0 execution demonstrated a reproducible runner defect:
+The Control Plane has already crossed the important feedback threshold:
 
 ```text
-api-authConf
-    task 1: saveAuth
-        finish_reason=length
-        → inconclusive
-        → unit becomes BLOCKED
-
-    task 2: saveSmsConf
-        confirmed / safe conclusion
-        → later result is not incorporated into the blocked unit
+Candidate Actions
+    ↓
+Real ResearchController
+    ↓
+Deterministic Experiment
+    ↓
+Real Observation
+    ↓
+Persistent ResearchControlState
+    ↓
+Next ResearchController decision
 ```
 
-Likewise:
+The current work was then extended toward bounded lifecycle / decision budget, but that implementation was interrupted before a final validated state was established.
+
+Therefore the current objective is now:
 
 ```text
-api-router
-    task 1: peripheral
-        inconclusive
-        → unit becomes BLOCKED
-
-    task 2/3/4:
-        safe / REJECTED conclusions
-        → later facts are skipped
+Recover exact worktree state
+        ↓
+Preserve last-known-good Control Plane semantics
+        ↓
+Keep Observation feedback
+        ↓
+Keep finite Decision Budget semantics if already present and correct
+        ↓
+Do not revive no_progress
+        ↓
+Continue toward the next bounded Control Plane capability
 ```
-
-The observed root cause is in `run_targeted_audit.py`:
-
-```python
-else:  # decision != vulnerable
-    if unit.status == CoverageStatus.IN_PROGRESS:
-        ...
-```
-
-Once the first task moves the unit to `BLOCKED`, later tasks no longer contribute their facts.
-
-### Correct semantic contract
-
-[DECISION]
-
-For each `coverage_id`, build:
-
-```text
-coverage_id
-    ├── all planned task keys
-    └── all planned unique paths
-```
-
-Every task contributes facts independently.
-
-Unit remains:
-
-```text
-IN_PROGRESS
-```
-
-while planned tasks remain incomplete.
-
-Only after **all tasks belonging to that coverage_id are complete**:
-
-```text
-if any vulnerable/candidate evidence:
-    → CANDIDATE
-
-elif any unresolved / inconclusive evidence:
-    → BLOCKED
-
-else:
-    → COVERED
-```
-
-This is the authoritative intended semantics for the current runner fix.
 
 ---
 
@@ -212,41 +168,19 @@ This is the authoritative intended semantics for the current runner fix.
 
 ### NEXT SINGLE ACTION
 
-> **只对当前 `run_targeted_audit.py` Coverage 聚合修复执行一次本地验证：检查最新 diff，运行最小覆盖聚合契约测试，并执行 `git diff --check`；不运行真实 P0，不重扫 AST，不修改其他模块。**
-
-### Why this is the only next action
-
-[DERIVED]
-
-The production run already proved the bug. The Provider fix has already been separately verified with 11 passing tests. The remaining uncertainty is whether the runner patch correctly implements the intended aggregation semantics without altering checkpoint, reporting, or security verdict behavior.
-
-### Completion gate for this action
-
 [TODO]
 
-This action is complete only if the returned evidence shows all of the following:
+> **Establish the live worktree delta for the Control Plane files (`research_controller.py`, `research_loop.py`, `research_agent.py`, `domain_contracts.py`, and Control Plane tests), and reconcile any partial/interrupted Progress Guard edits back to the last known-good Control Plane semantics before implementing anything new.**
 
-```text
-1. Multiple tasks sharing one coverage_id share one CoverageUnit.
-2. starting_paths contains all unique paths planned for that coverage_id.
-3. Safe + Safe:
-       all tasks complete → COVERED
-4. Inconclusive + Safe:
-       all tasks complete → BLOCKED
-       unresolved retained
-5. Safe + Inconclusive:
-       all tasks complete → BLOCKED
-6. Inconclusive + Safe + Safe:
-       all tasks complete → BLOCKED
-7. Vulnerable + Safe:
-       all tasks complete → CANDIDATE
-8. A prior BLOCKED/CANDIDATE unit with remaining tasks can reopen to IN_PROGRESS.
-9. Reopening does not silently erase prior unresolved facts or candidate evidence.
-10. No changes to checkpoint schema or completed task keys.
-11. `git diff --check` is clean.
-```
+This is one recovery action, not a new architecture phase.
 
-Until these conditions are verified, do not start a new real audit run.
+The next AI must not:
+
+- redesign the Control Plane;
+- add more actions;
+- reintroduce `no_progress`;
+- run a real target;
+- start a full regression before the delta is understood.
 
 ---
 
@@ -256,101 +190,220 @@ Until these conditions are verified, do not start a new real audit run.
 
 [DECISION]
 
-Primary file:
+Primary modules:
 
 ```text
-python/scripts/run_targeted_audit.py
+python/packages/core/src/agent/research_controller.py
+python/packages/core/src/agent/research_loop.py
+python/packages/core/src/agent/research_agent.py
+python/packages/core/src/harness/domain_contracts.py
 ```
 
-Best-fit existing tests:
+Primary tests:
 
 ```text
-existing Python test suite under `python/tests/`
+python/tests/test_research_controller.py
+python/tests/test_control_plane_observation_feedback.py
+python/tests/test_research_loop_contract.py
+python/tests/test_research_agent_contract.py
 ```
 
-The exact current runner test file is:
-
-[UNKNOWN]
-
-> The latest implementation result identifying the exact chosen test file has not yet been returned.
-
-Current semantic boundaries:
+Current architecture layer:
 
 ```text
-CoverageLedger state
-        ↓
-runner task aggregation
-        ↓
-CoverageUnit facts
-        ↓
-Coverage status finalization
-        ↓
-checkpoint/report compatibility
+ResearchAgent
+    ↓
+ResearchLoop
+    ↓
+ResearchController
+    ↓
+Deterministic Candidate Set
+    ↓
+Deterministic Experiment
+    ↓
+Observation
+    ↓
+Control State Feedback
 ```
 
-### 5.2 Supporting, Already-Verified Area
+### 5.2 Supporting Areas
 
 [FACT]
 
-The following areas are upstream/downstream context, not current edit targets:
+Existing supporting layers include:
 
 ```text
-python/packages/core/src/agent/model_provider.py
-python/packages/core/src/harness/coverage_ledger.py
-python/packages/core/src/harness/audit_checkpoint.py
-python/packages/core/src/harness/research_loop.py
-python/packages/core/src/harness/sandbox_executor.py
-python/packages/core/src/harness/transport.py
-python/packages/core/src/harness/invariant_evaluator.py
-python/packages/core/src/harness/finding_models.py
-python/packages/core/src/harness/reporting.py
-python/packages/core/src/agent/knowledge_promoter.py
+EndpointIR / EndpointRegistry
+AdaptiveExperimentSelector
+TransformationFamilyRegistry
+HttpTransport
+DenialClassification
+SemanticEquivalenceEvaluator
+EvidenceChain
+ExecutionTrace
+IndependentVerifier
+PromotionGate
+KnowledgePromoter
+Reporting / SARIF / OpenVEX
 ```
 
-They should remain unchanged during the current runner-only fix unless a new concrete source/test failure proves otherwise.
-
----
-
-## 6. Out of Scope
+### 5.3 Out of Scope
 
 [DECISION]
 
-Do not touch during the current objective:
+Do not touch during the current Control Plane recovery/continuation unless new source evidence directly requires it:
 
 ```text
 AST full rerun
-Asset rediscovery / subdomain collection
+Asset rediscovery
+Target expansion
 EndpointIR redesign
 EndpointRegistry redesign
-Mutation-family redesign
-ResearchLoop architecture rewrite
 Transport rewrite
 Sandbox rewrite
-Finding / Verification / Promotion redesign
-Reporting / SARIF / OpenVEX redesign
-Pi Runtime integration work
-Skill work
-React / Tauri / Desktop UI
+Finding schema redesign
+Verification redesign
+Promotion redesign
+Reporting redesign
+UI / Tauri / React
 Temporal
 PostgreSQL / pgvector
 LATS / MCTS
-New orchestration infrastructure
-Large-scale directory refactor
+Large orchestration frameworks
+Large directory refactors
 Unrelated technical debt
-Non-authorized target expansion
+Automatic bounty submission
+Unauthorized target research
 ```
 
-Do not reopen the older Pi R1-0 architecture task unless the current runner work is complete and the roadmap explicitly advances there.
+Do not reopen the older Coverage Unit runner objective as the main task.
+
+---
+
+## 6. Out of Scope: GVS5H Boundary
+
+[DECISION]
+
+`pi-gvs5h` is a **development-time orchestration harness**, not an Invar research-runtime dependency.
+
+Current upstream repository:
+
+```text
+https://github.com/srossitto79/pi-gvs5h
+```
+
+Current paper:
+
+```text
+https://arxiv.org/abs/2608.26480
+```
+
+[FACT, upstream README, retrieved 2026-10-01]
+
+The repository describes GVS5H as a Pi extension that uses fresh manager/worker sessions and a durable ledger for coding workflows. It explicitly states that worker sessions disable discovered extensions, skills, and prompt templates to prevent recursive workflows.
+
+[DERIVED]
+
+For Invar this means:
+
+```text
+Pi / pi-gvs5h
+    = development / engineering harness
+
+Invar ResearchController
+    = research-time bounded decision layer
+
+Invar deterministic Harness
+    = authoritative execution / evaluation
+```
+
+Do not nest GVS5H as:
+
+```text
+GVS manager
+    ↓
+Invar controller
+    ↓
+LLM
+    ↓
+experiment
+    ↓
+GVS manager
+```
+
+because that creates competing control planes and weakens causal attribution.
+
+GVS5H's published benchmark evidence is about coding tasks, not security research. Do not claim that its reported gains automatically transfer to Invar's security research workload.
 
 ---
 
 ## 7. Last Known Good State
 
-### 7.1 Latest Verified Provider State
+### 7.1 Control Plane Last Known Good
 
 [FACT, 2026-09-30]
 
-Latest available focused verification:
+Command:
+
+```powershell
+uv run --project python pytest python/tests/test_control_plane_observation_feedback.py python/tests/test_research_controller.py -q
+```
+
+Result:
+
+```text
+18 passed in 0.12s
+```
+
+This is the **primary current Control Plane recovery anchor**.
+
+### 7.2 What That Green State Proved
+
+[FACT]
+
+The test suite proved a real controller path:
+
+```text
+Turn 1
+    ↓
+Real ResearchController
+    ↓
+fake deterministic provider selects FA
+    ↓
+fake transport returns HTTP 403 / permission denied
+    ↓
+ResearchLoop writes observation into persistent control state
+    ↓
+Turn 2
+    ↓
+Real ResearchController receives the observation
+    ↓
+fake provider detects the observation in the prompt
+    ↓
+provider selects FB
+```
+
+The second decision was therefore causally dependent on the first experiment's observation rather than merely being the second LLM call.
+
+### 7.3 Earlier Observation Data-Flow State
+
+[FACT]
+
+Previous focused run:
+
+```text
+test_control_plane_observation_feedback.py: 4 passed
+related existing tests: 22 passed
+total: 26 passed
+```
+
+That run established the data-flow before the real-Controller path was added.
+
+### 7.4 Provider Last Known Good
+
+[FACT]
+
+Command:
 
 ```powershell
 uv run --project python pytest python/tests/test_model_provider.py
@@ -362,131 +415,68 @@ Result:
 11 passed in 0.12s
 ```
 
-Behavior locked by that work:
+Provider behavior locked by that work:
 
 ```text
 finish_reason == "stop"
     → normal structured JSON parse
 
 finish_reason == "length"
-    → direct parse
+    → parse direct result first
     → one continuation only when truly incomplete
-    → no bracket repair
-    → no guessed fields
-    → no infinite retries
+    → strict reparse
+    → safe failure if still invalid
 
 other finish_reason
     → immediate provider failure
 ```
 
-`git diff --check` was reported clean after the Provider fix.
-
-### 7.2 Latest Real P0 Run
-
-[FACT, 2026-09-30]
-
-Input:
+Forbidden:
 
 ```text
-targeted_research_tasks.json
-priority = P0
-LLM enabled
-LLM timeout = 120s
-target request timeout = 10s
+bracket repair
+field guessing
+infinite retries
+silently accepting unrelated finish reasons
 ```
 
-Output:
+### 7.5 Historical Full Baseline
 
-```text
-artifacts\reports\targeted_audit_production
-```
+[FACT, HISTORICAL]
 
-Run summary:
-
-```text
-tasks = 10
-coverage units = 6
-covered = 1
-blocked = 5
-deferred = 0
-coverage = 16.67%
-vulnerable tasks = 0
-candidate_fingerprints = 0
-OpenVEX statements = 0
-```
-
-### 7.3 Real P0 Task Outcomes
-
-[FACT]
-
-The latest run had 5 task-level safe/confirmed conclusions and 5 unresolved/inconclusive task results.
-
-Safe/confirmed:
-
-```text
-authConf/saveSmsConf
-router/switch
-router/remote_control × 2
-password_reset
-```
-
-Unresolved/inconclusive:
-
-```text
-delegate/grant
-authConf/saveAuth
-router/peripheral
-bind_recharge
-users/reset-password
-```
-
-Important semantic note:
-
-```text
-CONFIRMED / REJECTED in the research report
-≠ a vulnerability finding
-```
-
-A vulnerability finding is only created by the runner when:
-
-```text
-decision.status == "vulnerable"
-```
-
-### 7.4 Latest Engineering Baseline
-
-[FACT, HISTORICAL — not current]
+Previously recorded:
 
 ```text
 Python: 207 passed
-Rust:   15 passed
+Rust:    15 passed
 Total:  222 / 222
 ```
 
-Canonical commands:
+Commands:
 
 ```powershell
 uv run --project python pytest
 cargo test --workspace
 ```
 
-These must not be re-labelled as the current green baseline until rerun against the current worktree.
+This is a historical recovery anchor only. It is **not** a claim about the current worktree.
 
-### 7.5 Current Worktree State
+### 7.6 Current Worktree
 
 [UNKNOWN]
 
-Not directly inspectable in the current AI session.
-
-Must be established locally before claiming:
+The live worktree was not available to this AI. Therefore the following are unknown:
 
 ```text
-current branch
-current commit
-current modified files
-current deleted files
-current untracked files
-current diff cleanliness
+branch
+HEAD
+modified files
+deleted files
+untracked files
+final research_loop.py contents
+final research_agent.py contents
+current control-plane tests
+current progress-guard edits
 ```
 
 ---
@@ -495,16 +485,18 @@ current diff cleanliness
 
 | Item | Status | Evidence | Files | Notes |
 |---|---|---|---|---|
-| Stage 3 JS materialization | DONE | `tmp/raw_js` exists | `python/scripts/download_javascript.py` + artifacts | Current target asset was materialized. |
-| Stage 4 AST endpoint extraction | DONE | `tmp/ikuai8_endpoints_report.json` exists; 443 unique surface-like endpoints reported | AST / scan pipeline | Report is existing evidence, not a reason to rerun AST now. |
-| Stage 5 System-1 ONNX triage | DONE | 1232/1232 endpoint outputs | `python/scripts/predict_triage_onnx.py` | Explicit model dir `models/invar-intent-0.6b-v1` used. |
-| Stage 6 dual-track comparator | DONE | 443 surfaces; 1232 aligned; 1225 usable; 7 fallback; pools A/B/C = 56/30/30 | `python/scripts/triage_dual_track_comparator.py` | Evidence exists for current task assembly. |
-| Stage 7 task assembly | DONE | 86 tasks: P0=10, P1=35, P2=35, P3=6 | `artifacts/reports/targeted_research_tasks.json` | Current P0 run uses the P0 subset. |
-| Stage 8 initial P0 real run | DONE / BLOCKED | 10 tasks, 6 units, 1 covered, 5 blocked | `artifacts/reports/targeted_audit_production` | Proved runner aggregation defect. |
-| Provider `finish_reason=length` recovery | DONE | 11 Provider tests passed | `model_provider.py`, `test_model_provider.py` | One continuation max; no repair/guessing. |
-| Coverage aggregation fix | PARTIAL / UNVERIFIED | Implementation prompt issued; latest result not yet returned | `run_targeted_audit.py` + existing best-fit test | Must be verified before any retry run. |
-| First confirmed vulnerability | TODO | None | — | Not yet produced. |
-| First end-to-end Knowledge feedback loop | TODO | Not proven | `knowledge_promoter.py` and future planner boundary | Do not claim implemented. |
+| Deterministic System-2 research pipeline | DONE | Existing source / tests / artifacts | `python/packages/core/...` | Core execution and evidence path established |
+| Provider `finish_reason=length` recovery | DONE | 11 provider tests passed | `model_provider.py`, `test_model_provider.py` | One continuation max |
+| Coverage aggregation defect identification | DONE / HISTORICAL | Real P0 run | `run_targeted_audit.py` | No longer current mainline |
+| Research Control Plane v0 finite action set | DONE | 13 controller tests reported passing | `research_controller.py`, `test_research_controller.py` | `RUN_EXPERIMENT`, `STOP` |
+| Candidate-bounded controller | DONE | Controller implementation report + tests | `research_controller.py` | Controller can only select deterministic candidates |
+| Observation feedback state | DONE | 26 focused tests reported passing | `research_loop.py`, feedback tests | Persistent state inside loop |
+| Real Controller Observation feedback | DONE | 18 focused tests passed | `research_loop.py`, feedback tests | Most important current milestone |
+| ResearchAgent Control Plane constructor wiring | DONE / UNVERIFIED CURRENT WORKTREE | Pi implementation report | `research_agent.py` | Explicit parameters reported |
+| Control decision lifecycle / budget | PARTIAL / UNVERIFIED | Pi implementation was interrupted | `research_loop.py` | Must recover actual current source before continuing |
+| `no_progress` heuristic | DEPRECATED / REJECTED | Queue-consumption analysis | `research_loop.py` / related tests | Do not revive under current queue model |
+| First confirmed vulnerability | TODO | None | — | Not yet produced |
+| First end-to-end Knowledge feedback loop | TODO | None | — | Not yet proven |
 
 ---
 
@@ -512,80 +504,104 @@ current diff cleanliness
 
 ### 9.1 Added
 
-[UNKNOWN — current Git state]
-
-No reliable current `git status` is available.
-
-Known workstream additions from historical evidence include:
+[FACT from Control Plane implementation report]
 
 ```text
-python/tests/test_model_provider.py
+python/packages/core/src/agent/research_controller.py
+python/tests/test_research_controller.py
+python/tests/test_control_plane_observation_feedback.py
 ```
 
-but the exact distinction between newly added vs previously existing in the current branch is not established by the available snapshot.
+[UNKNOWN]
+
+Whether each is currently tracked/modified exactly as reported must be checked against live Git state.
 
 ### 9.2 Modified
 
-[FACT, workstream history; NOT a current Git status]
-
-Files touched or explicitly involved across the current engineering slice include:
+[FACT from implementation reports; current final content UNKNOWN]
 
 ```text
-python/packages/core/src/agent/model_provider.py
-python/tests/test_model_provider.py
-python/scripts/run_targeted_audit.py
-configs/base/project.toml
-configs/profiles/production.toml
-configs/profiles/research.toml
-python/packages/core/src/harness/run_models.py
-python/packages/core/src/harness/__init__.py
+python/packages/core/src/agent/research_loop.py
+python/packages/core/src/agent/research_agent.py
+python/packages/core/src/harness/domain_contracts.py
 ```
 
-Only the following are current-objective files:
+Reported roles:
 
 ```text
-python/scripts/run_targeted_audit.py
-chosen existing runner-focused test file
+research_loop.py
+    → Control Plane dispatch
+    → persistent Observation feedback
+
+research_agent.py
+    → explicit Control Plane constructor wiring
+
+domain_contracts.py
+    → Control Plane event types / payload contracts
 ```
 
-### 9.3 Deleted
+### 9.3 Temporary / Failed Helper
 
 [UNKNOWN]
 
-Historical worktree snapshots showed at least one deleted Butian-related Markdown document, but its current status must not be assumed.
+A session-created helper was intended as:
 
-### 9.4 Moved
+```text
+tools/fix_control_plane_budget.py
+```
+
+Two versions failed at Python parsing time:
+
+```text
+SyntaxError
+```
+
+before execution.
+
+Therefore:
+
+```text
+it must NOT be trusted as a project implementation
+it must NOT be treated as a successful repair
+```
+
+Its current filesystem state is UNKNOWN.
+
+### 9.4 Deleted
 
 [UNKNOWN]
 
-No trustworthy current move/rename record is available.
+### 9.5 Moved / Renamed
 
-### 9.5 Structure
+[UNKNOWN]
+
+### 9.6 Directory Contract
 
 [INVARIANT]
 
-The project uses directory boundaries:
+Maintain existing responsibility boundaries:
 
 ```text
-apps/                  UI / Tauri surface
-crates/                Rust
-python/                Python production / research / tests
-configs/               configuration
-data/                  target data
-models/                model assets
-artifacts/             reports / research outputs
-docs/                  engineering / research docs
-tmp/                   temporary verification / archaeology
-node/                  Node / harness tooling when present
+python/packages/core/src/   production Python
+python/tests/               Python tests
+crates/                     Rust
+configs/                    configuration
+data/                       target / dataset inputs
+models/                     model assets
+artifacts/                  durable research outputs
+docs/                       design / research documentation
+tmp/                        temporary archaeology / experiments
+tools/                      project utilities
+.pi/                        local Pi state / configuration where applicable
 ```
 
-Do not casually move code across these boundaries.
+Do not move production code into test/temporary directories.
 
 ---
 
 ## 10. Current Architecture
 
-### 10.1 Implemented Pipeline
+### 10.1 System Pipeline
 
 [FACT]
 
@@ -598,70 +614,148 @@ JavaScript Materialization
     ↓
 AST Endpoint Extraction
     ↓
-System-1 0.6B Triage
-    ↓
-Dual-Track Comparator
+System-1 Triage
     ↓
 Research Task Assembly
     ↓
-System-2 Targeted Audit
+System-2 Targeted Research
     ↓
 EndpointRegistry
     ↓
 AdaptiveSandboxExecutor
     ├── Transport
-    ├── Transformation / Mutation
+    ├── Mutation / Transformation
     ├── Denial Classification
     ├── Adaptive Selector
     └── ResearchAgent / ResearchLoop
     ↓
-Invariant / Semantic Evaluation
+Deterministic Evaluation
     ↓
-Execution Trace / Evidence
+Evidence / Trace
     ↓
 Independent Verification
     ↓
-Promotion Gate
+Promotion
     ↓
 Finding / Knowledge
     ↓
-SARIF / OpenVEX / Markdown
+Reporting
 ```
 
-### 10.2 Current Runtime Split
+### 10.2 Current Control Plane
 
-[FACT / DERIVED]
+[FACT, last known good]
 
 ```text
-Pi / local AI runtime
-    = generic agent runtime environment
-
-Invar
-    = security research control + deterministic execution / evaluation
+Deterministic Candidate Set
+        ↓
+ResearchController
+        ↓
+ResearchAction
+        ├── RUN_EXPERIMENT
+        └── STOP
+        ↓
+Deterministic Experiment
+        ↓
+Real Observation
+        ↓
+ResearchControlState
+        ↓
+Next Controller Decision
 ```
 
-The previous R1-0 Pi Runtime study established that Pi and llama-server exist locally, but this is no longer the current execution objective.
+### 10.3 Control State
 
-### 10.3 Important Boundary
+[FACT]
 
-[INVARIANT]
+Reported structure:
 
-The LLM may:
+```python
+@dataclass
+class ResearchControlState:
+    current_status: str = "EXECUTING"
+    tried_variants: Set[str] = field(default_factory=set)
+    last_observation_summary: str = ""
+```
+
+The feedback implementation updates:
 
 ```text
-propose
-reflect
-generate a candidate mutation
-suggest a next research action
+last_observation_summary
 ```
 
-The LLM may not directly manufacture:
+from the current experiment result instead of repeatedly using the initial baseline.
+
+### 10.4 Candidate Boundary
+
+[FACT]
+
+Reported `CandidateAction` fields:
 
 ```text
-CONFIRMED Finding
+variant_id
+family
+method
+url
+expected_effect
+rationale
 ```
 
-Deterministic execution and independent verification remain authoritative.
+The Control Plane does **not** accept arbitrary LLM-generated:
+
+```text
+headers
+payload
+new variants
+arbitrary HTTP actions
+```
+
+This is a key security boundary.
+
+### 10.5 Decision Contract
+
+[FACT]
+
+Reported `ControlPlaneDecision`:
+
+```text
+action
+target_id
+reason
+confidence
+```
+
+Validation guarantees:
+
+```text
+action ∈ finite ResearchAction enum
+RUN_EXPERIMENT → target_id must be in candidate_ids
+STOP → target_id must be null
+reason must be a string
+reason length ≤ configured maximum (reported default: 500)
+confidence ∈ [0, 1]
+confidence boolean is invalid
+raw decision must be a JSON object
+```
+
+### 10.6 Fail-Closed Behavior
+
+[FACT]
+
+Reported `ResearchController.decide()` behavior:
+
+```text
+no candidates
+    → STOP / fallback
+
+no provider
+    → deterministic fallback candidate
+
+invalid LLM output
+    → reject
+    → deterministic fallback
+    → do not invent a new action
+```
 
 ---
 
@@ -673,136 +767,195 @@ Deterministic execution and independent verification remain authoritative.
 
 [DECISION]
 
-Security-sensitive truth remains in deterministic components:
-
-```text
-transport
-execution
-observation
-semantic / invariant evaluation
-evidence recording
-independent verification
-promotion gate
-```
+The LLM is not the security truth source.
 
 **Why**
 
-Prevents model prose from becoming security fact.
+Security facts must remain grounded in execution, observation, deterministic evaluation, evidence, and independent verification.
 
 **Alternatives rejected**
 
-Treating LLM output itself as final verdict.
+Using model prose as a final vulnerability verdict.
 
 **Evidence**
 
-Existing provider, research loop, evidence, verification and promotion contracts; current P0 run also showed that LLM failures become inconclusive rather than findings.
+Existing EvidenceChain / verifier / promotion contracts plus the observed Control Plane design.
 
 **Do not revert unless**
 
-A new source-backed architecture change explicitly changes security authority and adds corresponding tests.
+A new source-backed security architecture is intentionally approved and corresponding contracts/tests are added.
 
 ---
 
-### AD-02 — Coverage Is a Unit-Level Aggregate, Not a First-Task Status
+### AD-02 — LLM Uses a Finite Action Vocabulary
 
 **Decision**
 
 [DECISION]
 
-A `CoverageUnit` represents the aggregate research state for all planned tasks sharing the same `coverage_id`.
+Current Control Plane starts with:
+
+```text
+RUN_EXPERIMENT
+STOP
+```
 
 **Why**
 
-The latest P0 run proved that first-task locking produces false under-reporting and discards later useful task-level conclusions.
+Bound model authority before expanding autonomy.
 
-**Correct rule**
+**Do not revert unless**
+
+A new bounded action contract exists with validation, execution semantics, and tests.
+
+---
+
+### AD-03 — Controller Selects Existing Deterministic Candidates
+
+**Decision**
+
+[DECISION]
+
+LLM cannot manufacture arbitrary experiment variants.
+
+**Why**
+
+Preserves deterministic execution authority and prevents direct model control over arbitrary request construction.
+
+**Do not revert unless**
+
+A future explicit candidate-generation boundary is created with independent validation.
+
+---
+
+### AD-04 — Observation Feedback Is Persistent Loop State
+
+**Decision**
+
+[DECISION]
+
+The previous experiment's real observation must enter the next Control Plane decision.
+
+Canonical path:
 
 ```text
-planned tasks for coverage_id
-        ↓
-independent task facts
-        ↓
-aggregate
-        ↓
-all tasks complete?
-    ├─ NO → IN_PROGRESS
-    └─ YES
-         ├─ any vulnerable → CANDIDATE
-         ├─ else any unresolved → BLOCKED
-         └─ else → COVERED
+Experiment
+    ↓
+Observation
+    ↓
+ResearchControlState
+    ↓
+Controller prompt
+    ↓
+Next decision
 ```
+
+**Evidence**
+
+18 focused tests passed on the real Controller path.
+
+---
+
+### AD-05 — Observation Equality Is Not a Research Progress Model
+
+**Decision**
+
+[DECISION]
+
+Do not define:
+
+```text
+same Observation
+=
+no_progress
+```
+
+under the current architecture.
+
+**Why**
+
+The candidate queue is a consumptive queue. A selected experiment is removed from the queue. Therefore a sequence such as:
+
+```text
+FA → 403
+FB → 403
+FC → 403
+```
+
+still represents distinct experiments even when their observations match.
+
+The queue's normal semantics already prevent indefinite same-candidate replay.
 
 **Alternatives rejected**
 
-“Reopen BLOCKED and immediately mark COVERED when the latest task is safe.”
+- duplicate `variant_id` queue fixtures to manufacture stagnation;
+- changing `pop()` semantics only to create a no-progress test;
+- treating unchanged response text as equivalent to unchanged research state.
 
-That is insufficient because earlier unresolved tasks may still exist.
+**Status**
 
-**Do not revert unless**
-
-A stronger coverage model explicitly records all task-level completion and derives an equivalent aggregate semantics.
-
----
-
-### AD-03 — `starting_paths` Must Represent the Coverage Plan
-
-**Decision**
-
-[DECISION]
-
-When a CoverageUnit is created for a `coverage_id`, `starting_paths` must contain all unique planned paths for that coverage unit in the current filtered task plan.
-
-**Why**
-
-Canonical ledger planning groups paths at unit level. Creating the unit with only the current task path loses the coverage plan.
-
-**Do not revert unless**
-
-The coverage plan itself changes to task-level units.
+`no_progress` guard is deprecated/rejected for the present architecture.
 
 ---
 
-### AD-04 — One-Step Engineering Rule
+### AD-06 — Research Progress Must Eventually Be State-Based
 
-**Decision**
+[DERIVED]
 
-[DECISION]
+Future progress should mean meaningful research-state advancement, not simply changed bytes.
 
-One round should advance one logical engineering action.
+Candidate future signals include:
 
-**Why**
+```text
+hypothesis transition
+evidence-grade transition
+new candidate family
+verification state advancement
+new invariant implication
+terminal condition
+```
 
-Reduces multi-module debugging ambiguity and prevents speculative refactors.
-
----
-
-### AD-05 — Do Not Import Heavy Orchestration Infrastructure Without Need
-
-**Decision**
-
-[DECISION]
-
-Temporal, PostgreSQL/pgvector, LATS/MCTS and large new orchestration components remain deferred until a concrete Invar contract and evidence-backed need exists.
+This is future architecture, not current implementation.
 
 ---
 
-### AD-06 — Headless Mainline
-
-**Decision**
+### AD-07 — One-Step Engineering
 
 [DECISION]
 
-The research mainline remains headless. Desktop UI is not part of current research execution.
+Each development round advances one logical action.
+
+Do not combine:
+
+```text
+architecture change
++
+large test rewrite
++
+runtime integration
++
+unrelated cleanup
+```
+
+in one step.
+
+---
+
+### AD-08 — GVS5H Stays Above the Research Runtime
+
+[DECISION]
+
+Use GVS5H for repository engineering when useful, but keep it outside Invar's runtime research control plane.
 
 ---
 
 ## 12. Data / API / Type Contracts
 
-### 12.1 `EndpointIR`
+### 12.1 EndpointIR
 
-[FACT]
+[FACT, existing project contract]
 
-Known core fields:
+Known core fields include:
 
 ```text
 method
@@ -818,81 +971,9 @@ confidence
 call_signature
 ```
 
-Canonical endpoint identity is method + path, with HTTP method normalization.
+Canonical endpoint identity is normalized around method + path.
 
-### 12.2 `EndpointRegistry`
-
-[FACT]
-
-Core operations:
-
-```text
-register
-register_all
-get
-contains
-to_list
-```
-
-Missing canonical endpoint references should fail explicitly.
-
----
-
-### 12.3 `CoverageUnit`
-
-[FACT]
-
-Known fields:
-
-```text
-coverage_id
-surface
-boundary
-subsystem
-attack_class
-starting_paths
-status
-owner_agent_id
-reviewed_paths
-check_refs
-candidate_fingerprints
-unresolved
-prior_refs
-weight
-```
-
-Current relevant states:
-
-```text
-PLANNED
-IN_PROGRESS
-COVERED
-CANDIDATE
-BLOCKED
-DEFERRED
-OUT_OF_SCOPE
-```
-
-### 12.4 Coverage State Transitions
-
-[FACT]
-
-Known transition capability includes:
-
-```text
-PLANNED      → IN_PROGRESS / DEFERRED / OUT_OF_SCOPE
-IN_PROGRESS  → COVERED / CANDIDATE / BLOCKED / PLANNED
-BLOCKED      → IN_PROGRESS / DEFERRED
-COVERED      → IN_PROGRESS
-CANDIDATE    → IN_PROGRESS
-OUT_OF_SCOPE → no normal transition
-```
-
-Important:
-
-> The ledger already exposes a `BLOCKED → IN_PROGRESS` recovery path. The latest defect is that the runner did not use the available capability correctly.
-
-### 12.5 `ResearchScope`
+### 12.2 ResearchScope
 
 [FACT]
 
@@ -906,53 +987,17 @@ allowed_methods
 authorization_boundary
 ```
 
-Authorized dynamic execution is represented by:
+Authorization boundary:
 
 ```text
 AUTHORIZED_ENGAGEMENT_ONLY
 ```
 
-### 12.6 `ResearchRun`
+### 12.3 ResearchLoopConfig
 
-[FACT]
+[FACT from pre-Control-Plane source; current Control Plane additions are partially UNVERIFIED]
 
-Core fields include:
-
-```text
-run_id
-target_root
-scope
-source_ref
-repository
-raw_js_hash
-profile
-execution_policy
-budget
-status
-started_at
-completed_at
-coverage_ledger_ref
-findings_ref
-prior_run_refs
-block_reason
-metadata
-track
-```
-
-Track values known:
-
-```text
-PRODUCTION
-RESEARCH
-INTELLIGENCE
-BENCHMARK
-```
-
-### 12.7 `ResearchLoopConfig`
-
-[FACT]
-
-Known relevant values:
+Known historical fields:
 
 ```text
 max_turns = 12
@@ -967,542 +1012,504 @@ public_root_preview
 llm_provider
 ```
 
-### 12.8 `OpenAICompatibleProvider`
+Reported Control Plane additions:
+
+```text
+control_plane_enabled
+controller
+control_plane_config
+```
+
+Current exact final values are `UNKNOWN`.
+
+### 12.4 ResearchLoopContext
 
 [FACT]
 
-Relevant defaults / behavior:
+Known fields:
 
 ```text
-base_url:
-    INVAR_LLM_BASE_URL
-    else OPENAI_BASE_URL
-    else http://127.0.0.1:8080/v1
-
-api_key:
-    INVAR_LLM_API_KEY
-    else OPENAI_API_KEY
-    else not-needed
-
-model:
-    INVAR_LLM_MODEL
-    else default
-
-timeout:
-    INVAR_LLM_TIMEOUT
-    else 120
+endpoint
+target_url
+baseline_observation
+denial_classification
+messages
+tried_variants
+evidence_chain
+metadata
 ```
 
-Requests are sent to:
+### 12.5 ResearchLoopResult
+
+[FACT, existing contract]
+
+Known fields:
+
+```text
+context
+final_verdict
+evidence_chain
+turns_executed
+probes_dispatched
+breakthrough_achieved
+aborted
+abort_reason
+```
+
+### 12.6 TransformationVariant
+
+[FACT, existing project contract]
+
+Known relevant fields:
+
+```text
+variant_id
+family
+method
+url
+headers
+payload
+rationale
+expected_effect
+```
+
+Important authority boundary:
+
+```text
+TransformationVariant headers/payload
+    should originate from deterministic transformation machinery
+    rather than unrestricted Control Plane model output
+```
+
+The legacy LLM reflection path previously generated headers/payload directly. Current Control Plane work intentionally avoids that authority pattern. The legacy path's current live status is `UNKNOWN`.
+
+### 12.7 ResearchController Contract
+
+[FACT, last known good implementation report]
+
+```text
+ResearchAction:
+    RUN_EXPERIMENT
+    STOP
+```
+
+```text
+CandidateAction:
+    variant_id: str
+    family: str
+    method: str
+    url: str
+    expected_effect: str
+    rationale: str
+```
+
+```text
+ResearchControlState:
+    current_status: str
+    tried_variants: Set[str]
+    last_observation_summary: str
+```
+
+```text
+ControlPlaneDecision:
+    action: ResearchAction
+    target_id: Optional[str]
+    reason: str
+    confidence: float
+```
+
+### 12.8 Provider Contract
+
+[FACT]
+
+Default local-provider boundary:
+
+```text
+OpenAI-compatible
+http://127.0.0.1:8080/v1
+```
+
+Provider request path:
 
 ```text
 {base_url}/chat/completions
 ```
 
-### 12.9 Current Provider Failure Handling Contract
-
-[FACT, after latest fix]
-
-```text
-stop
-    → normal structured JSON parse
-
-length
-    → direct parse
-    → one continuation only when truly incomplete
-    → reparse strictly
-    → safe provider failure if still invalid
-
-other finish_reason
-    → immediate provider failure
-```
-
-Forbidden behavior:
-
-```text
-bracket repair
-field guessing
-infinite retries
-silently accepting unrelated finish reasons
-```
+Sensitive information must come through environment/configuration injection; never write secrets into HANDOFF.
 
 ---
 
 ## 13. Algorithms / Workflow
 
-### 13.1 Current System-2 Workflow
-
-[FACT]
+### 13.1 Research Mainline
 
 ```text
-Task
-  ↓
-Resolve EndpointIR from EndpointRegistry
-  ↓
-Create / locate CoverageUnit
-  ↓
-Baseline observation
-  ↓
-Deterministic denial classification
-  ↓
-Mutation / transformation selection
-  ↓
-Dynamic probe
-  ↓
-Invariant / semantic evaluation
-  ↓
-Optional ResearchLoop / LLM fallback
-  ↓
-Evidence + trace
-  ↓
-Task-level decision
-  ↓
-CoverageUnit aggregate update
-```
-
-### 13.2 Current Coverage Aggregation Contract
-
-[DECISION]
-
-For a filtered task plan:
-
-```text
-coverage_id
+Research Task
     ↓
-planned_task_keys = all task keys in that coverage
-planned_paths      = all unique paths in that coverage
+Resolve EndpointIR
+    ↓
+Baseline Observation
+    ↓
+Deterministic Denial Classification
+    ↓
+Deterministic Candidate Generation
+    ↓
+Controller selects one bounded action
+    ↓
+Execute one deterministic experiment
+    ↓
+Observe result
+    ↓
+Evaluate semantic/invariant effects
+    ↓
+Update research state
+    ↓
+Controller decides again
 ```
 
-Per task:
+### 13.2 Current Loop Stop Conditions
+
+[FACT / PARTIALLY VERIFIED]
+
+Known existing termination mechanisms include:
 
 ```text
-safe / confirmed
-    → reviewed_paths
-    → check_refs
-
-inconclusive / decision missing / LLM failure
-    → unresolved
-
-vulnerable
-    → candidate / finding facts
+breakthrough
+max_turns
+signal.is_aborted
+candidate queue exhaustion
+controller STOP
 ```
 
-Then:
+A research-task-level Decision Budget was being added, but its final current implementation is `UNKNOWN`.
 
-```text
-remaining tasks > 0
-    → IN_PROGRESS
-
-remaining tasks == 0:
-    candidate exists
-        → CANDIDATE
-    else unresolved exists
-        → BLOCKED
-    else
-        → COVERED
-```
-
-### 13.3 Resume Semantics
+### 13.3 Progress Semantics
 
 [DECISION]
 
-If an old checkpoint contains:
+Current architecture does **not** have a validated general `research_progress` model.
+
+Do not use:
 
 ```text
-BLOCKED
+response text unchanged
 ```
 
-or:
+as the authoritative research-progress signal.
+
+Do not use:
 
 ```text
-CANDIDATE
+new variant executed
 ```
 
-but planned tasks for the unit remain incomplete:
+as equivalent to:
 
 ```text
-→ reopen to IN_PROGRESS
-→ preserve prior unresolved facts
-→ preserve candidate evidence
-→ process remaining tasks
+research success
 ```
 
-Do not silently clear evidence merely to obtain `COVERED`.
-
-### 13.4 Checkpoint Semantics
-
-[FACT]
-
-Existing checkpoint fields include:
+Use the distinction:
 
 ```text
-completed_task_keys
-last_completed_index
-status
-run
-ledger
-findings
-plan_digest
+experiment_progress
+    ≠
+security_success
 ```
-
-Current runner behavior skips already completed task keys on resume.
-
-Therefore:
-
-```text
-old blocked run
-+
-same output dir
-+
-all task keys already completed
-```
-
-does not automatically replay all tasks.
-
-### 13.5 Safe Retry Strategy After Current Fix
-
-[TODO]
-
-Use a **new output directory** to preserve the first production run as a baseline.
-
-Preferred conceptual shape:
-
-```text
-artifacts/reports/targeted_audit_p0_retry
-```
-
-Do not destroy the prior production evidence.
 
 ---
 
 ## 14. Verified Tests
 
-### 14.1 Provider Contract
+### VT-01 — Research Controller Contract
 
-[FACT]
+[FACT, session report]
+
+```text
+13 passed
+```
+
+Purpose:
+
+```text
+finite action validation
+candidate target validation
+reason constraints
+confidence constraints
+fail-closed behavior
+```
+
+### VT-02 — Observation Feedback Data Flow
+
+[FACT, session report]
+
+```text
+4 focused feedback tests passed
+22 related existing tests passed
+26 total passed
+```
+
+Purpose:
+
+```text
+real experiment result is persisted into loop control state
+```
+
+### VT-03 — Real Controller Observation Feedback
+
+[FACT, 2026-09-30]
 
 ```powershell
-uv run --project python pytest python/tests/test_model_provider.py
+uv run --project python pytest python/tests/test_control_plane_observation_feedback.py python/tests/test_research_controller.py -q
 ```
 
 Result:
+
+```text
+18 passed in 0.12s
+```
+
+Purpose:
+
+```text
+ResearchController.decide()
+→ _build_prompt()
+→ validation
+→ observation-dependent provider response
+→ next selected candidate
+```
+
+### VT-04 — Provider Contract
+
+[FACT, 2026-09-30]
 
 ```text
 11 passed in 0.12s
 ```
 
-### 14.2 Historical Full Regression
+### VT-05 — Historical Full Regression
 
 [FACT, HISTORICAL]
-
-```powershell
-uv run --project python pytest
-cargo test --workspace
-```
-
-Historical result:
 
 ```text
 Python 207 passed
-Rust   15 passed
-Combined 222 / 222
+Rust 15 passed
+222 / 222
 ```
 
-This is a recovery anchor, not a current green claim.
+Not current.
 
-### 14.3 Track Contract
+### VT-06 — Progress Guard
 
-[FACT, HISTORICAL]
+[UNVERIFIED]
 
-```powershell
-uv run --project python pytest python/tests/test_run_track_contract.py python/tests/test_research_run.py
-```
+No validated final Progress Guard state exists.
 
-Result:
-
-```text
-11 passed in 0.05s
-```
-
-### 14.4 Existing Important Contract Suites
-
-[FACT]
-
-```text
-python/tests/test_research_agent_contract.py
-python/tests/test_research_loop_contract.py
-python/tests/test_research_loop_integration.py
-python/tests/test_research_loop_llm_contract.py
-python/tests/test_model_provider.py
-python/tests/test_adaptive_sandbox_all.py
-python/tests/test_adaptive_selector_contract.py
-python/tests/test_invariant_evaluator.py
-python/tests/test_evidence_contract.py
-python/tests/test_verification_and_promotion_gate.py
-python/tests/test_reporting_projections.py
-python/tests/test_coverage_ledger.py
-```
-
-### 14.5 Required New Runner Tests
-
-[TODO]
-
-The runner-focused test set must cover at least:
-
-```text
-safe + safe → COVERED
-
-inconclusive + safe → BLOCKED
-safe + inconclusive → BLOCKED
-
-inconclusive + safe + safe → BLOCKED
-
-vulnerable + safe → CANDIDATE
-
-old BLOCKED + remaining task → IN_PROGRESS
-```
-
-And must assert:
-
-```text
-reviewed_paths
-check_refs
-unresolved
-candidate_fingerprints
-starting_paths
-remaining task semantics
-```
+Do not record green results that came from interrupted/truncated implementation reasoning.
 
 ---
 
 ## 15. Failure / Pitfall Registry
 
-### FP-01 — Python `httpx` vs ProjectDiscovery `httpx`
+### FP-01 — LLM Treated as the Whole Research System
 
 **Problem**
 
-Same command name may resolve to the Python CLI instead of ProjectDiscovery.
+Model output was allowed to be conceptualized as the research system itself.
 
 **Root Cause**
 
-Executable precedence / PATH collision.
+Model generation and research control were conflated.
 
 **Wrong Approach**
 
-Trust the filename.
+Let model prose directly determine final security truth.
 
 **Correct Fix**
 
-Verify executable identity explicitly.
-
----
-
-### FP-02 — Long JavaScript Context Explosion
-
-**Root Cause**
-
-AST slices became too large for downstream research prompts.
-
-**Correct Fix**
-
-Research `code_slice` has a bounded size; historical contract uses an 800-character ceiling.
-
----
-
-### FP-03 — Invalid HTTP Methods From Dynamic JS Fragments
-
-**Root Cause**
-
-Unrelated JS tokens were interpreted as HTTP methods.
-
-**Correct Fix**
-
-Normalize to standard HTTP verbs and canonical paths.
-
----
-
-### FP-04 — Windows Registry Proxy Hang
-
-**Root Cause**
-
-HTTP client inherited Windows proxy configuration and could hang for long periods.
-
-**Correct Fix**
-
-Deterministic transport behavior with local bypass / proxy isolation.
-
----
-
-### FP-05 — HTTP 200 Treated as Success
-
-**Root Cause**
-
-Transport-level status was confused with business-level authorization outcome.
-
-**Correct Fix**
-
-Interpret business code / response semantics together with HTTP status.
-
----
-
-### FP-06 — SPA HTML Treated as API Breakthrough
-
-**Root Cause**
-
-SPA / index fallback returned HTTP 200.
-
-**Correct Fix**
-
-HTML fallback and resource-equivalence checks prevent false breakthroughs.
-
----
-
-### FP-07 — LLM Fallback Short-Circuit
-
-**Root Cause**
-
-A soft-200 / false breakthrough prematurely skipped later reflection.
-
-**Correct Fix**
-
-Breakthrough determination excludes soft denial and SPA fallback.
-
----
-
-### FP-08 — LLM Mistaken For Whole Research System
-
-**Root Cause**
-
-Model generation capability was conflated with research control architecture.
-
-**Correct Fix**
-
-Keep:
+Separate:
 
 ```text
 Research Control
 +
 Deterministic Security Core
++
+Evidence / Verification
 ```
 
-as separate responsibilities.
-
 ---
 
-### FP-09 — String Search Used as Runtime Integration Proof
-
-**Root Cause**
-
-Text matches cannot establish actual package exports or runtime execution identity.
-
-**Correct Fix**
-
-Runtime compatibility must be proven by actual import / require / execution.
-
----
-
-### FP-10 — Local Pi Extension Lockfile Mistaken For Global Pi Install
-
-**Root Cause**
-
-Local extension workspace and global Pi npm environment were conflated.
-
-**Correct Fix**
-
-Verify local extension workspace, global npm root, and CLI wrapper separately.
-
----
-
-### FP-11 — PowerShell `$PID` Collision
-
-**Root Cause**
-
-PowerShell reserves `$PID` case-insensitively.
-
-**Correct Fix**
-
-Use names such as `$ownerPid`.
-
----
-
-### FP-12 — Multi-line PowerShell Pipeline Parser Hazard
-
-**Root Cause**
-
-Interactive multi-line PowerShell syntax can produce parser errors when pasted.
-
-**Correct Fix**
-
-Put complex checking logic into `tmp/check_xxx.py`; PowerShell should mostly launch it.
-
----
-
-### FP-13 — Provider `finish_reason=length` Hard Failure
+### FP-02 — Observation Feedback Missing
 
 **Problem**
 
-Structured output was rejected immediately whenever `finish_reason != stop`.
+Controller repeatedly received baseline observation rather than the previous real experiment result.
 
 **Root Cause**
 
-Provider treated any non-stop finish as unrecoverable without first checking whether the returned content was already complete.
+`last_observation_summary` was rebuilt from the initial baseline.
 
 **Correct Fix**
 
-For `length`, parse the returned content first; only when incomplete, issue one continuation; fail safely if continuation does not produce a strict object.
+Use persistent loop-local `ResearchControlState`.
 
 **Regression**
 
-11 Provider tests passed after the fix.
+18 focused tests passed on the real Controller path.
 
 ---
 
-### FP-14 — Coverage Unit First-Task Locking
+### FP-03 — `no_progress` Defined as Unchanged Observation
 
 **Problem**
 
-A unit became `BLOCKED` after its first inconclusive task and later safe task results were ignored.
+Repeated 403 responses were interpreted as research stagnation.
 
 **Root Cause**
 
-`run_targeted_audit.py` performed aggregate state transitions inside a branch guarded by:
+Observation equality was confused with research-state equality.
 
-```python
-if unit.status == CoverageStatus.IN_PROGRESS:
+**Wrong Approach**
+
+```text
+same response
+→ no_progress
+```
+
+**Correct Fix**
+
+Rejected for current architecture.
+
+---
+
+### FP-04 — Candidate Queue Semantics Ignored
+
+**Problem**
+
+Progress Guard design tried to force the loop to replay already-consumed variants.
+
+**Root Cause**
+
+The queue is consumptive:
+
+```text
+select
+→ pop
+→ execute
+→ tried_variants
 ```
 
 **Wrong Approach**
 
-Treat the latest safe task as sufficient to reopen and immediately mark the whole unit `COVERED`.
+Introduce duplicate variant IDs or alter `pop()` just to create a test.
 
 **Correct Fix**
 
-Aggregate all planned task facts and only finalize the unit after all planned tasks finish.
+Respect current queue semantics. Defer general research-progress modeling until dynamic replanning exists.
 
-**Regression**
+---
 
-Required tests are listed in Section 14.5 and must be completed before retry.
+### FP-05 — Pi / Local Model Response Truncation
+
+**Problem**
+
+The local model/Pi repeatedly produced responses ending with:
+
+```text
+Response was truncated before completion
+```
+
+during Progress Guard reasoning.
+
+**Root Cause**
+
+`UNKNOWN`.
+
+Potential contributors were discussed, but no authoritative root-cause evidence was produced.
+
+**Correct Fix**
+
+Do not treat the suspected cause as proven. Current engineering policy is to stop delegating this particular implementation step to the local Pi/model and use deterministic, human-directed code changes.
+
+---
+
+### FP-06 — Generated Repair Script SyntaxError
+
+**Problem**
+
+`tools/fix_control_plane_budget.py` failed twice with Python SyntaxError.
+
+**Root Cause**
+
+The generated helper itself contained invalid Python string construction.
+
+**Wrong Approach**
+
+Repeatedly patch the helper.
+
+**Correct Fix**
+
+Do not trust the helper. Inspect the real diff and make source changes from confirmed structure.
+
+---
+
+### FP-07 — Historical HANDOFF Used as Current Source of Truth
+
+**Problem**
+
+The previous HANDOFF still described Coverage Unit aggregation as the current objective.
+
+**Root Cause**
+
+The project moved forward, but the handoff snapshot had not yet been regenerated.
+
+**Correct Fix**
+
+This HANDOFF explicitly supersedes the old runner objective and labels current live Git state as unknown when it cannot be verified.
 
 ---
 
 ## 16. Do Not Repeat
 
-1. 不要把旧 HANDOFF 的 R1-0 Pi Runtime 目标当成当前目标。
-2. 不要把文件名、字符串命中、package-lock 命中当成 runtime integration 证明。
-3. 不要把模型可用误写成自主研究控制平面已经完成。
-4. 不要把 LLM 输出直接升级为 `CONFIRMED` Finding。
-5. 不要把 HTTP 200 当成成功或漏洞条件。
-6. 不要把单个 task 的安全结论直接当成整个 shared Coverage Unit 已覆盖。
-7. 不要在还有未完成 task 时把 CoverageUnit 提前标记 `COVERED`。
-8. 不要清除旧 `unresolved` / candidate facts 来“让状态通过”。
-9. 不要修改 `coverage_ledger.py` 仅仅因为 runner 尚未正确使用已有状态转移能力。
-10. 不要把历史 Git 状态写成当前 Git 状态。
-11. 不要覆盖上一轮真实 P0 产物作为“修复后的对照组”。
-12. 不要为了当前 Coverage bug 重写 ResearchLoop、Transport、Sandbox、Reporting 或 Promotion。
-13. 不要一次修改多个未验证边界。
-14. 不要复制真实 token、cookie、password、private key 或 API secret 到 HANDOFF。
-15. 不要使用长 `python -c` 作为本项目常规检查方式。
-16. 不要为了“看起来先进”直接引入 Temporal / PostgreSQL / LATS / 新 sandbox 等大型依赖。
+```text
+不要把旧 HANDOFF 的 Coverage runner 目标当成当前主线。
+
+不要把历史 Git 状态写成当前 Git 状态。
+
+不要把 222/222 historical regression 写成 current green。
+
+不要把 Pi 的自我报告当成源代码事实。
+
+不要把 Observation 相同直接等价为 no_progress。
+
+不要为了制造 no_progress 测试而修改 candidate queue pop 语义。
+
+不要使用重复 variant_id 作为真实架构行为的替代品。
+
+不要让 Control Plane LLM 直接生成任意 headers/payload。
+
+不要让 LLM 直接制造 confirmed Finding。
+
+不要把 candidate execution 等同于 security success。
+
+不要因为 GVS5H 能改善 coding workflow 就让它成为 Invar runtime controller。
+
+不要把 GVS5H paper 的 coding benchmark 结果写成 security-research benchmark 结果。
+
+不要通过长 prompt 让本地模型承担无限制架构推理。
+
+不要一次修改多个未经验证的边界。
+
+不要用大型 regex/自动修复脚本猜测当前源代码结构。
+
+不要把脚本 SyntaxError 误认为项目源码已经损坏。
+
+不要覆盖已有真实研究产物来“重新跑一遍”。
+
+不要将真实 Token、Cookie、Password、Private Key、API Secret 写进 HANDOFF。
+
+不要在未确认授权的目标上执行动态研究。
+```
 
 ---
 
@@ -1511,19 +1518,20 @@ Required tests are listed in Section 14.5 and must be completed before retry.
 ### 17.1 Engineering Invariants
 
 ```text
-目录 = 职责边界
-类型 = 数据边界
-接口 = 模块边界
-测试 = 行为契约
 事实等级必须明确
-历史状态不得冒充当前状态
+源码 > 测试 > 配置 > 运行结果 > HANDOFF > 模型记忆
+目录 = 职责边界
+接口 = 模块边界
+类型 = 数据边界
+测试 = 行为契约
 ```
 
 ### 17.2 Research Invariants
 
 ```text
 Observation ≠ Hypothesis
-Hypothesis ≠ Finding
+Hypothesis ≠ Evidence
+Evidence ≠ Finding
 Finding ≠ Knowledge
 ```
 
@@ -1538,245 +1546,232 @@ Observation
 → Promotion
 ```
 
-### 17.3 Coverage Invariants
+### 17.3 Control Plane Invariants
 
 ```text
-shared coverage_id = one aggregate CoverageUnit
-
-starting_paths = all unique planned paths of that coverage_id
-
-remaining tasks > 0
-    → IN_PROGRESS
-
-all tasks complete + candidate
-    → CANDIDATE
-
-all tasks complete + unresolved
-    → BLOCKED
-
-all tasks complete + no unresolved + no candidate
-    → COVERED
+LLM action ∈ finite Action Enum
+LLM cannot invent arbitrary action types
+RUN_EXPERIMENT target_id must come from deterministic candidate set
+STOP target_id must be null
+invalid model decision → fail closed
+controller must receive real previous Observation
 ```
 
 ### 17.4 Security Invariants
 
 ```text
-Authorization scope is mandatory for dynamic execution.
-LLM cannot directly manufacture final security facts.
-Independent verification remains separate from original discovery.
-Evidence must be tied to real observations.
+AUTHORIZED_ENGAGEMENT_ONLY
+dynamic execution requires authorized scope
+independent verification remains separate
+evidence must correspond to real observations
 ```
 
-### 17.5 Checkpoint Invariants
+### 17.5 State Invariants
 
 ```text
-completed_task_keys represent physically completed work.
-Resume must not claim progress not supported by execution evidence.
-New retry runs should preserve prior evidence rather than overwrite it.
+tried_variants accumulates executed variant identifiers
+candidate queue consumption must remain deterministic
+research success must not be inferred from model confidence
+```
+
+### 17.6 Checkpoint / Evidence Invariants
+
+```text
+completed task keys represent physically completed work
+resume must not invent progress
+previous evidence should not be silently erased
+new retry outputs should use a new directory
 ```
 
 ---
 
 ## 18. Open Issues
 
-### OI-01 — Current runner patch not yet verified
+### OI-01 — Current live Control Plane source state
 
 **Impact**
 
-Determines whether the coverage under-count is actually fixed.
+Future AI cannot safely distinguish completed Control Plane code from interrupted Progress Guard edits without checking the worktree.
 
 **Known**
 
-The correct semantic contract is established.
+Last known good is the 18-pass Observation feedback state.
 
 **Unknown**
 
-Whether the latest local implementation precisely satisfies it.
+Exact current contents after interrupted Pi modifications.
 
 **Next Verification**
 
-Current `NEXT SINGLE ACTION`.
+Current `git diff` for the Control Plane files.
 
 ---
 
-### OI-02 — Current Git branch / commit / worktree
+### OI-02 — Decision Budget final implementation
 
 **Impact**
 
-Without live Git state, exact current code drift cannot be asserted.
+Finite controller lifecycle is a core anti-loop requirement.
 
 **Known**
 
-Historical `git status` snapshots exist.
+A budget was being added after the 18-pass state.
 
 **Unknown**
 
-Current branch, HEAD, modified/deleted/untracked files.
+Whether the final implementation exists, is correct, or was partially modified.
 
 **Next Verification**
 
-```powershell
-git branch --show-current
-git rev-parse HEAD
-git status --short
-git diff --check
+Inspect the live `research_loop.py` / `research_controller.py` diff.
+
+---
+
+### OI-03 — Phase-2 Controller lifecycle
+
+**Impact**
+
+The Control Plane must not accidentally issue extra controller decisions after an explicit stop/budget exhaustion.
+
+**Known**
+
+Pi's interrupted reasoning identified a potential Phase-2 duplicate-decision issue.
+
+**Unknown**
+
+Final current implementation.
+
+**Next Verification**
+
+Inspect live Phase-2 control branch before modifying it.
+
+---
+
+### OI-04 — Legacy direct LLM reflection path
+
+**Impact**
+
+Historical `ResearchLoop` reflection directly requested:
+
+```text
+rationale
+headers
+payload
 ```
 
-Do not treat these as optional before a final release claim.
-
----
-
-### OI-03 — Full regression after latest modifications
-
-**Impact**
-
-Provider and runner changes may affect broader tests.
+and created a specialized variant.
 
 **Known**
 
-Historical full baseline is 222 / 222.
+The new Control Plane was designed specifically to prevent this authority pattern.
 
 **Unknown**
 
-Current full-suite result after latest changes.
+Whether the latest worktree still contains and/or activates that path under current configuration.
 
 **Next Verification**
 
-After the current runner-focused fix is fully verified, run the appropriate regression slice according to the one-step rule; do not combine it with the current implementation step.
+Inspect current `research_loop.py` phase-2 logic.
+
+**Do not silently claim it has been removed.**
 
 ---
 
-### OI-04 — `users/reset-password` remains inconclusive
+### OI-05 — Candidate URL sensitivity
 
 **Impact**
 
-The latest task returned HTTP 405 and did not close the authorization invariant.
+`CandidateAction` includes `url`.
 
 **Known**
 
-LLM output suggested a possible method mismatch hypothesis.
+Headers/payload are excluded.
 
 **Unknown**
 
-Whether the endpoint is truly vulnerable.
+Whether any candidate URL can contain sensitive query parameters, signatures, or tokens under the current transformation families.
 
 **Next Verification**
 
-A dedicated, authorized follow-up experiment is required; do not call it safe solely because the task verdict was `REJECTED`.
+Inspect candidate-generation URL construction and redaction boundaries before exposing it to a real model.
 
 ---
 
-### OI-05 — `delegate/grant`, `router/peripheral`, `bind_recharge` remain unresolved
+### OI-06 — Current local model runtime stability
 
 **Impact**
 
-These tasks currently prevent their coverage units from converging safely.
+Pi/local-model implementation work was repeatedly truncated.
 
 **Known**
 
-They produced inconclusive outcomes in the first P0 run.
+The user adjusted llama-server configuration after the issue.
 
 **Unknown**
 
-Whether they are safe, vulnerable, or merely transport / method mismatches.
+Whether the final current runtime is stable and which exact parameter change was causal.
 
 **Next Verification**
 
-Must happen in a later audit pass after current coverage aggregation correctness is verified.
+Only if runtime stability becomes a direct blocker; do not make model tuning the current research objective.
 
 ---
 
-### OI-06 — Checkpoint unresolved de-duplication across reruns
+### OI-07 — First verified vulnerability
 
 **Impact**
 
-Could affect long-lived blocked state and evidence clarity.
+Long-term mission milestone.
 
 **Known**
 
-Current report showed unresolved facts keyed with task-derived identifiers.
+No confirmed vulnerability has yet been produced by the current evidence chain.
 
 **Unknown**
 
-Whether repeated reruns can accumulate duplicate unresolved facts.
+Future finding.
 
 **Next Verification**
 
-Inspect checkpoint restore / merge behavior directly before relying on repeated resume in the same output directory.
-
----
-
-### OI-07 — 78 vs 86 research seed naming discrepancy
-
-**Impact**
-
-Can confuse future AI about task inventory history.
-
-**Known**
-
-Historical artifact naming contained `78`, while latest task assembly evidence reports 86 tasks.
-
-**Unknown**
-
-Exact reason for the naming discrepancy.
-
-**Next Verification**
-
-Read the seed checker and task JSON directly if this discrepancy becomes relevant to planning.
-
----
-
-### OI-08 — Real Pi Runtime integration remains unresolved but is not current
-
-**Impact**
-
-Future control-plane architecture.
-
-**Known**
-
-Pi CLI and local llama-server existed in prior verified runtime evidence.
-
-**Unknown**
-
-Full direct Pi Session API compatibility and best minimal integration boundary.
-
-**Next Verification**
-
-Return to runtime contract testing only after the current Stage-8 correctness work is complete.
+Future authorized research after the Control Plane becomes stable enough for autonomous target progression.
 
 ---
 
 ## 19. Environment / Toolchain
 
-| Component | Known State | Level |
-|---|---|---|
-| OS | Windows | [FACT] |
-| Shell | PowerShell | [FACT] |
-| Python | 3.12.13 in recent test output | [FACT] |
-| Python package manager | `uv` | [FACT] |
-| Pytest | 9.1.1 in recent targeted test output | [FACT] |
-| Python requirement | `>=3.11,<3.14` | [FACT, project snapshot] |
-| Rust | Cargo workspace | [FACT] |
-| Rust edition | 2021 | [FACT, historical project state] |
-| JS workspace | pnpm workspace | [FACT, project snapshot] |
-| Main research mode | Headless | [DECISION] |
-| Local LLM provider | OpenAI-compatible | [FACT] |
-| LLM endpoint | `http://127.0.0.1:8080/v1` | [FACT] |
-| LLM model env used in P0 run | `Qwen3.8-27B-Uncensored` | [FACT, run configuration] |
-| LLM timeout | 120s | [FACT, run configuration] |
-| Target HTTP timeout | 10s | [FACT, run configuration] |
-| Local model family | Qwen3.8-27B Uncensored | [FACT] |
-| Quantization | `IQ3_XXS - 3.0625 bpw` | [FACT, runtime snapshot] |
-| llama context | 65536 | [FACT, runtime snapshot] |
-| Pi configured context | 81920 | [FACT, historical Pi config snapshot] |
-| Target authorization | `AUTHORIZED_ENGAGEMENT_ONLY` | [FACT / INVARIANT] |
+### 19.1 Project Environment
 
-### Canonical Commands
+[FACT, project snapshot]
 
-Python full tests:
+```text
+OS: Windows
+Shell: PowerShell
+Python project manager: uv
+Python requirement in root python project: >=3.10,<3.13
+Core package requirement: >=3.11,<3.14
+Package/test dependency: pytest
+Rust: Cargo workspace
+JS: pnpm workspace in project snapshot
+```
+
+### 19.2 Canonical Commands
+
+Python tests:
 
 ```powershell
 uv run --project python pytest
+```
+
+Focused provider test:
+
+```powershell
+uv run --project python pytest python/tests/test_model_provider.py
+```
+
+Focused Control Plane test:
+
+```powershell
+uv run --project python pytest python/tests/test_control_plane_observation_feedback.py python/tests/test_research_controller.py -q
 ```
 
 Rust tests:
@@ -1785,19 +1780,7 @@ Rust tests:
 cargo test --workspace
 ```
 
-Provider test:
-
-```powershell
-uv run --project python pytest python/tests/test_model_provider.py
-```
-
-Temporary verification:
-
-```powershell
-uv run --project python python tmp/check_xxx.py
-```
-
-Git state:
+Git recovery:
 
 ```powershell
 git branch --show-current
@@ -1806,41 +1789,136 @@ git status --short
 git diff --check
 ```
 
+### 19.3 Local LLM Runtime
+
+[FACT from user-supplied runtime configuration]
+
+OpenAI-compatible local endpoint:
+
+```text
+http://127.0.0.1:8080/v1
+```
+
+Current model family/name supplied during this session:
+
+```text
+Ornith-1.5-35B-A3B-Abliterated-CyberTiel_Calibrated-MTPv2-23G-ICE.gguf
+```
+
+The user supplied an earlier high-pressure configuration involving:
+
+```text
+draft-mtp
+160000 context
+large batch / ubatch
+MoE CPU offload
+FlashAttention
+reasoning on
+```
+
+The user subsequently adjusted the configuration.
+
+[UNKNOWN]
+
+The exact final post-adjustment launch arguments and runtime stability are not confirmed in this snapshot.
+
+### 19.4 Pi / GVS5H
+
+[FACT, upstream current README]
+
+Current GVS5H repository states:
+
+```text
+Node >=22.19.0
+tested with Pi 0.85.1
+```
+
+Those versions describe the upstream project's tested environment, **not the user's verified current local versions**.
+
 ---
 
 ## 20. Roadmap
 
-Roadmap is descriptive only. It does not override `CURRENT OBJECTIVE`.
+Roadmap is descriptive only.
 
-### Phase A — Current Runner Correctness
+### Phase A — Deterministic Security Harness
 
-**Status:** CURRENT / IN PROGRESS
+**Status: DONE / MATURE**
 
 ```text
-Coverage aggregation fix
-→ targeted tests
-→ diff-check
-→ controlled P0 retry
-→ compare baseline
+EndpointIR
+→ deterministic transport
+→ mutation
+→ evaluation
+→ evidence
+→ independent verification
+→ reporting
 ```
 
-### Phase B — Stable P0 Research Closure
+### Phase B — Bounded Control Plane
 
-**Status:** TODO
+**Status: DONE / PROVEN**
 
-Resolve remaining P0 inconclusive tasks without changing the evidence boundary.
+```text
+finite action set
+→ candidate-bounded decision
+→ Observation feedback
+```
 
-### Phase C — Expand P1 / P2 Research
+### Phase C — Stable Control Lifecycle
 
-**Status:** TODO
+**Status: CURRENT / PARTIAL**
 
-Only after P0 correctness and resume semantics are trustworthy.
+```text
+Observation feedback
+→ bounded decision budget
+→ explicit terminal semantics
+→ correct Phase-1 / Phase-2 lifecycle
+```
 
-### Phase D — First Verified Vulnerability
+### Phase D — Expand Finite Research Actions
 
-**Status:** TODO
+**Status: TODO**
 
-Produce:
+Potential future bounded actions:
+
+```text
+VERIFY
+NEED_EVIDENCE
+RELATIONSHIP_CHECK
+REPORT_READY
+```
+
+These are not current implementation claims.
+
+### Phase E — Dynamic Research State / Replanning
+
+**Status: TODO**
+
+Move from:
+
+```text
+fixed candidate queue
+```
+
+toward:
+
+```text
+Research Goal
+→ Hypothesis
+→ Research State
+→ Candidate generation
+→ Action
+→ Observation
+→ State transition
+→ Replanning
+```
+
+This is the point at which a real general `research_progress` model becomes meaningful.
+
+### Phase F — First End-to-End Verified Research Cycle
+
+**Status: TODO**
 
 ```text
 Observation
@@ -1848,51 +1926,40 @@ Observation
 → Independent Verification
 → FindingRecord
 → PromotionGate
+→ KnowledgeCard
 ```
-
-### Phase E — Agent-driven Research Control Plane
-
-**Status:** TODO
-
-Move beyond primarily fixed mutation fallback toward explicit goal / hypothesis / planning / state transitions.
-
-### Phase F — Pi Runtime Reuse Boundary
-
-**Status:** TODO / BLOCKED BY PRIOR VERIFICATION
-
-Close the real Pi Session / Skill / Tool boundary using direct runtime evidence.
 
 ### Phase G — Knowledge Feedback
 
-**Status:** TODO
+**Status: TODO**
 
 ```text
 Verified Finding
-→ Pattern
-→ KnowledgeCard
+→ Knowledge
 → Future Research Input
 ```
 
 ### Phase H — Cross-target Generalization
 
-**Status:** TODO
+**Status: TODO**
 
-Only after first end-to-end proven research cycle.
+Only after the core authorized research loop is proven reproducible.
 
 ---
 
 ## 21. Recovery Protocol
 
-A new AI must recover in exactly this order:
+A new AI must follow exactly:
 
 ```text
-1. Read HANDOFF
-2. Read real source / current repo tree
-3. Read the current runner-focused tests
-4. Verify the Last Known Good State
-5. Verify CURRENT OBJECTIVE
-6. Check Git drift
-7. Execute only NEXT SINGLE ACTION
+1. Read HANDOFF.md
+2. Read current source
+3. Read current relevant tests
+4. Establish current Git state
+5. Compare against Last Known Good State
+6. Determine whether partial/interrupted edits exist
+7. Confirm CURRENT OBJECTIVE
+8. Execute only NEXT SINGLE ACTION
 ```
 
 ### Conflict resolution
@@ -1906,7 +1973,14 @@ latest verifiable source > HANDOFF
 If HANDOFF conflicts with tests:
 
 ```text
-latest verifiable tests > HANDOFF
+latest real test result > HANDOFF
+```
+
+If source and tests conflict:
+
+```text
+record the conflict
+do not guess
 ```
 
 If information is missing:
@@ -1915,110 +1989,53 @@ If information is missing:
 UNKNOWN
 ```
 
-Never repair uncertainty with intuition.
-
-### Current recovery focus
-
-Read first:
-
-```text
-python/scripts/run_targeted_audit.py
-python/packages/core/src/harness/coverage_ledger.py
-python/packages/core/src/harness/audit_checkpoint.py
-python/tests/test_coverage_ledger.py
-chosen runner-focused tests
-python/packages/core/src/agent/model_provider.py
-python/tests/test_model_provider.py
-```
-
-Then inspect actual current Git state.
+Do not use model memory to fill gaps.
 
 ---
 
 ## 22. AI Collaboration Protocol
 
-### 22.1 Language
-
 [DECISION]
 
-Default language:
+Current engineering interaction has changed from Pi-delegated implementation to **direct assistant-led engineering guidance** for this narrow Control Plane workstream because the local model/Pi repeatedly interrupted before completing the task.
+
+Default collaboration:
 
 ```text
-中文
+AI
+  ↓
+one logical action
+  ↓
+user executes locally
+  ↓
+exact terminal output returned
+  ↓
+AI evaluates
+  ↓
+next single action
 ```
 
-Keep real identifiers / symbols / paths in their original form.
-
-### 22.2 One-Step Rule
-
-[DECISION]
+Requirements:
 
 ```text
-一个会话轮次
-    ↓
-一个明确工程动作
-    ↓
-用户执行
-    ↓
-返回真实输出
-    ↓
-下一动作
+中文优先
+一次只推进一个逻辑动作
+先确认源码，再修改
+不要假设命令成功
+不要假设测试成功
+不要把计划当事实
+不要一次给出多个互相依赖的未经验证修改
 ```
 
-### 22.3 Evidence Discipline
-
-Always use:
+For local PowerShell execution:
 
 ```text
-[FACT]
-[DECISION]
-[DERIVED]
-[ASSUMPTION]
-[UNKNOWN]
-[TODO]
+prefer short deterministic commands
+avoid long inline Python / regex mutation scripts
+put complex deterministic logic in a checked file
 ```
 
-Never convert:
-
-```text
-TODO → DONE
-DERIVED → FACT
-ASSUMPTION → FACT
-historical snapshot → current state
-```
-
-### 22.4 Execution Preference
-
-[DECISION]
-
-Provide executable commands / complete code blocks.
-
-For PowerShell-heavy operations:
-
-```text
-prefer single-line or simple commands
-avoid fragile long multi-line interactive pipelines
-```
-
-For complex checks:
-
-```text
-tmp/check_xxx.py
-```
-
-### 22.5 Current Feedback Loop
-
-The user normally:
-
-```text
-receives one command / one logical action
-→ executes locally in Pi / PowerShell
-→ pastes exact terminal output
-→ AI analyzes
-→ AI provides next single action
-```
-
-Do not assume success.
+The user has explicitly requested that Pi not be used to drive forward implementation of this specific Control Plane repair until the architecture is stable again.
 
 ---
 
@@ -2026,7 +2043,7 @@ Do not assume success.
 
 [INVARIANT]
 
-Never place the following in HANDOFF:
+Never put into this HANDOFF:
 
 ```text
 real token
@@ -2034,77 +2051,64 @@ password
 cookie
 private key
 API secret
-session credential
+authorization bearer
 unnecessary personal data
-unnecessary real attack payload
 ```
 
 Use:
 
 ```text
-environment variable
-runtime injection
-redacted
+<REDACTED>
 fixture
 mock
 localhost
-placeholder
+environment variable
+secret-injected-runtime
 ```
 
-### Authorized Target Boundary
-
-[FACT]
-
-Dynamic testing must remain under:
+Dynamic security research must remain inside:
 
 ```text
-data/targets/ikuai8.com/scope.txt
 AUTHORIZED_ENGAGEMENT_ONLY
 ```
 
-Do not expand target scope because a new AI thinks additional assets “would be useful.”
+No automatic external bounty submission is part of the current runtime.
 
 ---
 
 ## 24. Reproducibility Status
 
-### Overall Rating
+### PARTIALLY REPRODUCIBLE
 
-**CONDITIONALLY REPRODUCIBLE**
+Reason:
 
-### Reason
+[FACT]
 
-[DERIVED]
-
-The core software contracts, test entry points, current Stage-3~8 artifacts, Provider fix behavior, and Coverage bug evidence are sufficiently documented to recover the current engineering thread.
-
-Full end-to-end reproducibility remains conditional because:
+The following are reproducible from recorded evidence:
 
 ```text
-current live Git state = UNKNOWN
-current worktree = not mounted in this AI session
-full regression after latest changes = not rerun
-current runner patch = not yet verified in this snapshot
-real target behavior = environment-dependent
-LLM runtime availability = external runtime dependency
-authorization scope = must remain explicitly verified
+project structure
+core research architecture
+Provider contract
+Control Plane contracts
+Observation feedback behavior
+18-pass real-controller focused test
+historical provider test result
+historical full regression baseline
 ```
 
-### Layered assessment
+But:
 
 ```text
-Python core contracts            = HIGH
-Rust core contracts              = HIGH (historical)
-Provider fix behavior            = HIGH
-Stage 3–7 artifact existence     = HIGH
-Initial P0 execution evidence    = HIGH
-Coverage aggregation bug         = HIGH
-Current runner patch correctness = UNKNOWN
-Current Git state                = UNKNOWN
-Full current regression          = UNKNOWN
-Real target behavior             = CONDITIONAL
-First real vulnerability finding = NOT YET REPRODUCIBLE
+current live Git state
+final post-interruption research_loop.py
+final post-interruption progress-budget implementation
+current local model runtime stability
 ```
+
+remain `UNKNOWN`.
+
+Therefore the project must not be marked `FULLY REPRODUCIBLE` from this snapshot alone.
 
 ---
 
@@ -2112,92 +2116,66 @@ First real vulnerability finding = NOT YET REPRODUCIBLE
 
 ```text
 [x] 一个新 AI 是否知道当前项目是什么？
-    YES — Invar System-2 security research / dynamic evidence engine.
+    YES — Invar System-2 dynamic security research / evidence engine.
 
-[x] 一个新 AI 是否知道当前到底在做什么？
-    YES — 修正并验证 run_targeted_audit.py Coverage Unit 聚合语义。
-
-[x] 一个新 AI 是否知道为什么要做？
-    YES — P0 实证证明 shared CoverageUnit 被 first-task BLOCKED 锁死。
-
-[x] 一个新 AI 是否知道最后一次已知良好状态？
-    YES — Provider focused test 11 passed; historical full baseline 222/222.
-
-[x] 一个新 AI 是否知道哪些事实是当前的，哪些只是历史？
-    YES — current vs historical labels are explicit.
-
-[x] 一个新 AI 是否知道最后一次真实 P0 的状态？
-    YES — 10 tasks, 6 units, 1 covered, 5 blocked, 0 findings.
-
-[x] 一个新 AI 是否知道哪些 task 是安全结论，哪些仍未闭环？
-    YES — Section 7.3.
+[x] 一个新 AI 是否知道当前主线？
+    YES — continue the bounded Research Control Plane.
 
 [x] 一个新 AI 是否知道当前唯一下一步？
-    YES — runner diff + minimal aggregation tests + git diff --check.
+    YES — establish the live Control Plane diff and reconcile interrupted edits.
 
-[x] 一个新 AI 是否知道不能做什么？
+[x] 一个新 AI 是否知道最后一次已知良好状态？
+    YES — 18 focused Control Plane tests passed in 0.12s.
+
+[x] 一个新 AI 是否知道哪些内容已经证明？
+    YES — real ResearchController receives previous Observation and changes next decision input.
+
+[x] 一个新 AI 是否知道哪些内容尚未证明？
+    YES — final Decision Budget / Phase-2 lifecycle / current worktree state.
+
+[x] 一个新 AI 是否知道为什么 no_progress 被拒绝？
+    YES — current consumptive queue makes Observation equality an invalid general progress proxy.
+
+[x] 一个新 AI 是否知道哪些文件是当前主要边界？
+    YES — research_controller.py, research_loop.py, research_agent.py, domain_contracts.py, focused tests.
+
+[x] 一个新 AI 是否知道不能碰什么？
     YES — Out of Scope is explicit.
 
-[x] 一个新 AI 是否知道 Coverage 的正确状态机？
-    YES — Section 3 / 13 / 17.
+[x] 一个新 AI 是否知道真实测试命令？
+    YES — focused commands are recorded.
 
-[x] 一个新 AI 是否知道为什么“后续 safe task → 立即 COVERED”是错误的？
-    YES — earlier unresolved facts may remain.
+[x] 一个新 AI 是否知道历史 222/222 不能写成当前绿？
+    YES.
 
-[x] 一个新 AI 是否知道如何避免覆盖旧证据？
-    YES — new retry output directory.
+[x] 一个新 AI 是否知道 GVS5H 的边界？
+    YES — development harness only, not Invar runtime authority.
 
-[x] 一个新 AI 是否知道当前 Git 是否干净？
-    NO — correctly recorded as UNKNOWN.
+[x] 一个新 AI 是否知道不要相信失败的 repair helper？
+    YES — helper SyntaxError, status untrusted.
 
-[x] 一个新 AI 是否知道哪些信息尚未确定？
-    YES — Section 18.
+[x] 一个新 AI 是否知道当前 Git 状态？
+    NO — correctly marked UNKNOWN and must be established locally.
 
-[x] 一个新 AI 是否知道如何恢复测试与协作方式？
-    YES — Sections 14 / 19 / 21 / 22.
-
-[x] HANDOFF 是否包含真实 secret？
+[x] 一个新 AI 是否包含真实 secrets？
     NO.
+
+[x] 一个新 AI 是否能够在当前上下文丢失后继续？
+    YES, after verifying the live worktree against this snapshot.
 ```
 
 ---
 
-# Final Recovery Statement
+## Final Recovery Statement
 
 [DECISION]
 
-> **当前不要重新设计 Invar。**
+> **Do not redesign Invar.**
 >
-> Invar 的确定性动态执行、端点身份、研究循环、证据链、独立验证、PromotionGate、SARIF/OpenVEX 投影等基础能力已有事实证据。
+> The project has already crossed the key Control Plane milestone: a real bounded `ResearchController` can receive a previous experiment's Observation and influence the next decision input.
 >
-> 最新 P0 真实运行暴露的直接工程问题是 **Coverage Unit 聚合状态机在 runner 层实现错误**：同一 `coverage_id` 的第一个 inconclusive task 可以把 unit 置为 `BLOCKED`，导致后续 task 的安全结论没有进入 aggregate state。这个问题已经通过真实执行结果定位，而不是推测。
+> The attempted `no_progress` layer was the wrong abstraction for the current consumptive candidate-queue architecture and is explicitly rejected.
 >
-> 当前正确的修复不是“看到后续 safe task 就直接 COVERED”，而是：
+> The remaining uncertainty is not conceptual architecture; it is the exact live worktree state after the interrupted Decision Budget / lifecycle implementation.
 >
-> ```text
-> 按 coverage_id 聚合全部 planned task
-> → 每个 task 独立贡献事实
-> → 未完成全部 task 前保持 IN_PROGRESS
-> → 全部完成后
->      vulnerable → CANDIDATE
->      unresolved → BLOCKED
->      otherwise → COVERED
-> ```
->
-> 因此：
->
-> ```text
-> CURRENT OBJECTIVE
->     ↓
-> run_targeted_audit.py Coverage aggregation correctness
->     ↓
-> NEXT SINGLE ACTION
->     ↓
-> inspect diff + targeted aggregation tests + git diff --check
->     ↓
-> only after verification
->     ↓
-> new-output-dir P0 retry
-> ```
->
-> **不要在当前验证完成前修改 Coverage Ledger、Provider、ResearchLoop、Transport、Sandbox、Reporting、OpenVEX、Pi、Skill、UI 或其他无关边界。**
+> The next AI must first recover that state against the 18-pass Last Known Good Control Plane state, make only the minimum reconciliation required, and then continue the autonomous-research mainline.

@@ -15,6 +15,11 @@ from agent.loop_types import (
     SteeringMessage,
 )
 from agent.model_provider import OpenAICompatibleProvider
+
+# 哨兵：用于区分“未传 control_plane_enabled”与“显式传 False”，
+# 保证默认行为不变、现有调用方无需修改。
+_UNSET = object()
+from agent.research_controller import ControlPlaneConfig, ResearchController
 from agent.research_loop import (
     ResearchLoopConfig,
     ResearchLoopContext,
@@ -54,6 +59,9 @@ class ResearchAgent:
         config: Optional[ResearchLoopConfig] = None,
         transport: Optional[HttpTransport] = None,
         llm_provider: Optional[OpenAICompatibleProvider] = None,
+        control_plane_enabled: object = _UNSET,
+        controller: Optional[ResearchController] = None,
+        control_plane_config: Optional[ControlPlaneConfig] = None,
     ):
         self.agent_id = agent_id
         self.config = config or ResearchLoopConfig()
@@ -61,6 +69,14 @@ class ResearchAgent:
         self.llm_provider = llm_provider
         if self.llm_provider:
             self.config.llm_provider = self.llm_provider
+        # 显式 Control Plane 启用入口：仅当参数显式提供时才写入 config，
+        # 默认 control_plane_enabled=False，旧路径行为不变。
+        if control_plane_enabled is not _UNSET:
+            self.config.control_plane_enabled = control_plane_enabled
+        if controller is not None:
+            self.config.controller = controller
+        if control_plane_config is not None:
+            self.config.control_plane_config = control_plane_config
 
         self._state = AgentState.IDLE
         self._listeners: Set[ResearchEventSink] = set()
