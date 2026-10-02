@@ -1,0 +1,10 @@
+{
+  "$schema": "https://schemas.glavo.site/hmcl/launcher-state/1.0.0",
+  "x": 0.278125,
+  "y": 0.32407407407407407,
+  "width": 802.0,
+  "height": 492.0,
+  "shownTips": {
+    "lwjgl3.4.1-ffm": true
+  }
+}

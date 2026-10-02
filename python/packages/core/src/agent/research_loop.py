@@ -149,6 +149,13 @@ def run_research_loop(
     last_response_preview = context.baseline_observation.body_preview
     # Control Plane 控制状态生命周期：last_observation_summary 随每轮真实 Observation 更新，
     # 供下一轮 _select_via_controller() 读取，形成 Observation feedback 闭环。
+    max_decisions = (
+        config.control_plane_config.max_decisions
+        if config.control_plane_config is not None
+        else config.max_budget
+    )
+    decisions_count = 0
+    controller_stopped = False
     control_state = ResearchControlState(
         current_status="EXECUTING",
         tried_variants=set(context.tried_variants),
@@ -341,6 +348,9 @@ def run_research_loop(
     # 仅当 config.control_plane_enabled 时启用；默认关闭，旧路径行为不变。
     # ------------------------------------------------------------------
     def _select_via_controller() -> Optional[PrioritizedExperiment]:
+        nonlocal decisions_count, controller_stopped
+        if controller_stopped or decisions_count >= max_decisions:
+            return None
         controller = (
             config.controller
             or ResearchController(
@@ -351,10 +361,9 @@ def run_research_loop(
             )
         )
         candidates = [CandidateAction.from_prioritized(e) for e in prioritized_queue]
-        # 复用持久化 control_state：tried_variants 实时刷新，
-        # last_observation_summary 保留上一轮真实 Observation (feedback 闭环)。
         control_state.tried_variants = set(context.tried_variants)
         control_state.current_status = "EXECUTING"
+        decisions_count += 1
         decision = controller.decide(
             candidates=candidates,
             state=control_state,
@@ -362,6 +371,7 @@ def run_research_loop(
             emit=(lambda evt: _emit(evt.event_type, evt.payload)) if emit is not None else None,
         )
         if decision.action == ResearchAction.STOP:
+            controller_stopped = True
             return None
         # RUN_EXPERIMENT：target_id 已在 controller 内校验属于候选集合
         for i, exp in enumerate(prioritized_queue):
@@ -395,7 +405,8 @@ def run_research_loop(
         if config.control_plane_enabled:
             current_exp = _select_via_controller()
             if current_exp is None:
-                _emit(ResearchEventType.TURN_END, {"turn": turn_index, "outcome": "controller_stop"})
+                outcome = "budget_exhausted" if decisions_count >= max_decisions else "controller_stop"
+                _emit(ResearchEventType.TURN_END, {"turn": turn_index, "outcome": outcome})
                 break
         else:
             current_exp = prioritized_queue.pop(0)
@@ -410,8 +421,8 @@ def run_research_loop(
         and (signal is None or not signal.is_aborted)
     ):
         if config.control_plane_enabled:
-            # Control Plane：仅在确定性候选中选择，绝不自行构造任意 HTTP 请求
-            if prioritized_queue:
+            # 严格守卫：若控制器已明确决策 STOP，或决策预算已耗尽，严禁在 Phase 2 违背意图重复调用！
+            if not controller_stopped and decisions_count < max_decisions and prioritized_queue:
                 turn_index += 1
                 chosen = _select_via_controller()
                 if chosen is not None:

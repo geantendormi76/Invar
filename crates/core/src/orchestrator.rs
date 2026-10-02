@@ -227,7 +227,10 @@ impl ProcessAstExtractor {
 
         let output = match child.wait_with_output() {
             Ok(o) => o,
-            Err(_) => return Vec::new(),
+            Err(err) => {
+                eprintln!("[ProcessAstExtractor] Failed to wait for child: {err}");
+                return Vec::new();
+            }
         };
 
         let stdout_str = String::from_utf8_lossy(&output.stdout);

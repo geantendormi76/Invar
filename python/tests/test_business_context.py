@@ -1,3 +1,4 @@
+import pytest
 """
 Phase 1 业务调用上下文恢复测试（business_context.py + extractor 集成）。
 
@@ -26,6 +27,10 @@ from harness.business_context import CallContextResolver, _business_name, _resol
 from harness.extractor import JSEndpointExtractor  # noqa: E402
 
 CHUNK = ROOT / "tmp" / "raw_js" / "cloud.ikuai8.com" / "07a7ade6ba70ea6ecb4e_chunk-71e3ab88.af00cba6.js"
+_requires_chunk = pytest.mark.skipif(
+    not CHUNK.exists(),
+    reason="Requires physical JS target chunk in tmp/raw_js (run download_javascript.py first)",
+)
 
 
 def _parse(code):
@@ -73,6 +78,7 @@ def _ctx_by_business(code, business):
     raise AssertionError(f"no grant call with business_name={business!r}")
 
 
+@_requires_chunk
 def test_1_real_chunk_giveRouter_full_context():
     code, calls = _grant_calls_from_chunk()
     assert len(calls) == 3, f"expected 3 grant calls, got {len(calls)}"
@@ -89,6 +95,7 @@ def test_1_real_chunk_giveRouter_full_context():
     }, got
 
 
+@_requires_chunk
 def test_2_real_chunk_giveRouterBatch():
     code, calls = _grant_calls_from_chunk()
     ctx = _ctx_by_business(code, "giveRouterBatch")
@@ -100,6 +107,7 @@ def test_2_real_chunk_giveRouterBatch():
     assert got["perms"] == "e.batchGrantData.selectedPerm"
 
 
+@_requires_chunk
 def test_3_real_chunk_addAccount_perms_empty_array():
     code, calls = _grant_calls_from_chunk()
     ctx = _ctx_by_business(code, "addAccount")
@@ -113,6 +121,7 @@ def test_3_real_chunk_addAccount_perms_empty_array():
     assert perms.value_byte == 34473
 
 
+@_requires_chunk
 def test_4_addAccount_second_n_not_misbound():
     """addAccount 中调用点之后还有一次同名 `var n`（moment 赋值）；
     解析必须取调用点之前的 grant object，而非之后的 moment 对象。"""
@@ -137,6 +146,7 @@ def test_4_addAccount_second_n_not_misbound():
     assert vals["gwids"] == "[e.editData.gwid]", vals
 
 
+@_requires_chunk
 def test_5_minified_source_line_1_uses_byte_offset():
     """真实 chunk 的 endpoint.line==1（minified），但上下文按字节偏移恢复。"""
     ext = JSEndpointExtractor()
@@ -260,6 +270,7 @@ def test_9_property_identifier_vs_identifier_distinct():
     assert [f.name for f in ctx.params] == ["p"]
 
 
+@_requires_chunk
 def test_10_extractor_integration_does_not_mutate_endpointir_fields():
     """集成：call_contexts 挂在实例属性上；EndpointIR 数据类字段集合不变。"""
     import dataclasses

@@ -1,0 +1,456 @@
+[12:06:23] [Datafixer Bootstrap #0/INFO]: 307 Datafixer optimizations took 142 milliseconds
+[12:06:24] [Render thread/INFO]: Environment: Environment[discoveryUrl=https://discovery.minecraftservices.com/minecraft/client, name=PROD]
+[12:06:24] [Render thread/INFO]: Setting user: geantendormi
+[12:06:24] [Render thread/INFO]: Backend library: LWJGL version 3.4.3+4
+[12:06:24] [Render thread/INFO]: SDL [SYSTEM]: App name: Minecraft
+[12:06:24] [Render thread/INFO]: SDL [SYSTEM]: App version: 26.3
+[12:06:24] [Render thread/INFO]: SDL [SYSTEM]: App ID: com.mojang.minecraft
+[12:06:24] [Render thread/INFO]: SDL [SYSTEM]: SDL revision: SDL-3.4.14--128-NOTFOUND
+[12:06:25] [Render thread/INFO]: Using graphics backend OpenGL, using drivers: 3.3.0 NVIDIA 595.91.07
+[12:06:25] [Render thread/INFO]: Using graphics device: NVIDIA GeForce RTX 3060/PCIe/SSE2 (NVIDIA Corporation)
+[12:06:25] [Render thread/INFO]: Using graphics device extensions: GL_ARB_multi_draw_indirect, GL_ARB_shader_draw_parameters, GL_ARB_base_instance, GL_KHR_debug, GL_ARB_draw_indirect, GL_ARB_clip_control, GL_ARB_vertex_attrib_binding, GL_ARB_direct_state_access, GL_EXT_texture_filter_anisotropic
+[12:06:25] [Render thread/INFO]: Created window using SDL video driver: x11
+[12:06:26] [Download-2/ERROR]: Failed to fetch user properties
+com.mojang.authlib.exceptions.InvalidCredentialsException: Status: 401
+	at com.mojang.authlib.exceptions.MinecraftClientHttpException.toAuthenticationException(MinecraftClientHttpException.java:70)
+	at com.mojang.authlib.services.MinecraftServicesUserApiService.fetchProperties(MinecraftServicesUserApiService.java:168)
+	at net.minecraft.client.Minecraft.lambda$new$1(Minecraft.java:451)
+	at java.base/java.util.concurrent.CompletableFuture$AsyncSupply.run(CompletableFuture.java:1789)
+	at java.base/java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1090)
+	at java.base/java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:614)
+	at java.base/java.lang.Thread.run(Thread.java:1474)
+Caused by: MinecraftClientHttpException[type=HTTP_ERROR, status=401, response=ErrorResponse[path=/player/attributes, error=null, errorMessage=null, details=null]]
+	at com.mojang.authlib.minecraft.client.MinecraftClient.buildHttpException(MinecraftClient.java:170)
+	at com.mojang.authlib.minecraft.client.MinecraftClient.readServiceResponse(MinecraftClient.java:147)
+	at com.mojang.authlib.minecraft.client.MinecraftClient.getWithEtag(MinecraftClient.java:81)
+	at com.mojang.authlib.minecraft.client.MinecraftClient.get(MinecraftClient.java:65)
+	at com.mojang.authlib.services.MinecraftServicesUserApiService.fetchProperties(MinecraftServicesUserApiService.java:118)
+	... 5 more
+[12:06:26] [Render thread/INFO]: Reloading ResourceManager: vanilla, vanilla
+[12:06:26] [Worker-Main-2/INFO]: Found unifont_all_no_pua-17.0.01.hex, loading
+[12:06:26] [Worker-Main-14/INFO]: Found unifont_pua-17.0.01.hex, loading
+[12:06:26] [Worker-Main-9/INFO]: Found unifont_jp_patch-17.0.01.hex, loading
+[12:06:27] [Download-2/INFO]: Could not authorize you against Realms server: java.lang.RuntimeException: Failed to parse into SignedJWT: 587fab0516e343ad9f773a3e798900f5
+[12:06:27] [Download-2/ERROR]: Failed to fetch Realms feature flags
+com.mojang.realmsclient.exception.RealmsServiceException: Realms authentication error with message 'java.lang.RuntimeException: Failed to parse into SignedJWT: 587fab0516e343ad9f773a3e798900f5'
+	at com.mojang.realmsclient.client.RealmsClient.execute(RealmsClient.java:625)
+	at com.mojang.realmsclient.client.RealmsClient.fetchFeatureFlags(RealmsClient.java:204)
+	at java.base/java.util.concurrent.CompletableFuture$AsyncSupply.run(CompletableFuture.java:1789)
+	at java.base/java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1090)
+	at java.base/java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:614)
+	at java.base/java.lang.Thread.run(Thread.java:1474)
+[12:06:27] [Render thread/INFO]: OpenAL initialized on device Built-in Audio 模拟立体声
+[12:06:27] [Render thread/INFO]: Sound engine started
+[12:06:27] [Render thread/INFO]: Created: 512x256x0 minecraft:textures/atlas/particles.png-atlas
+[12:06:27] [Render thread/INFO]: Created: 256x128x0 minecraft:textures/atlas/celestials.png-atlas
+[12:06:27] [Render thread/INFO]: Created: 128x128x0 minecraft:textures/atlas/decorated_pot.png-atlas
+[12:06:27] [Render thread/INFO]: Created: 512x256x0 minecraft:textures/atlas/paintings.png-atlas
+[12:06:27] [Render thread/INFO]: Created: 1024x512x0 minecraft:textures/atlas/shield_patterns.png-atlas
+[12:06:27] [Render thread/INFO]: Created: 1024x512x0 minecraft:textures/atlas/banner_patterns.png-atlas
+[12:06:27] [Render thread/INFO]: Created: 2048x2048x4 minecraft:textures/atlas/blocks.png-atlas
+[12:06:27] [Render thread/INFO]: Created: 1024x512x0 minecraft:textures/atlas/items.png-atlas
+[12:06:27] [Render thread/INFO]: Created: 1024x1024x0 minecraft:textures/atlas/gui.png-atlas
+[12:06:27] [Render thread/INFO]: Created: 128x64x0 minecraft:textures/atlas/map_decorations.png-atlas
+[12:06:27] [Render thread/INFO]: Created: 512x512x0 minecraft:textures/atlas/chest.png-atlas
+[12:06:27] [Render thread/INFO]: Created: 512x512x0 minecraft:textures/atlas/shulker_boxes.png-atlas
+[12:06:27] [Download-2/INFO]: Could not authorize you against Realms server: java.lang.RuntimeException: Failed to parse into SignedJWT: 587fab0516e343ad9f773a3e798900f5
+[12:06:27] [Download-2/ERROR]: Couldn't connect to realms
+com.mojang.realmsclient.exception.RealmsServiceException: Realms authentication error with message 'java.lang.RuntimeException: Failed to parse into SignedJWT: 587fab0516e343ad9f773a3e798900f5'
+	at com.mojang.realmsclient.client.RealmsClient.execute(RealmsClient.java:625)
+	at com.mojang.realmsclient.client.RealmsClient.clientCompatible(RealmsClient.java:354)
+	at com.mojang.realmsclient.RealmsAvailability.lambda$check$0(RealmsAvailability.java:48)
+	at java.base/java.util.concurrent.CompletableFuture$AsyncSupply.run(CompletableFuture.java:1789)
+	at java.base/java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1090)
+	at java.base/java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:614)
+	at java.base/java.lang.Thread.run(Thread.java:1474)
+[12:07:47] [Render thread/INFO]: Connecting to play.mchsy.top, 25565
+[12:07:48] [Worker-Main-27/ERROR]: Registry loading errors:
+> Errors in registry minecraft:trim_material:
+>> Errors in element minecraft:amethyst:
+java.lang.IllegalStateException: Failed to parse value {asset_name:"redstone",description:{color:"#971607",translate:"trim_material.minecraft.redstone"}} for key minecraft:amethyst from server
+	at net.minecraft.resources.RegistryLoadTask$PendingRegistration.loadFromNetwork(RegistryLoadTask.java:127)
+	at net.minecraft.resources.NetworkRegistryLoadTask.lambda$load$0(NetworkRegistryLoadTask.java:56)
+	at java.base/java.util.concurrent.CompletableFuture$AsyncSupply.run(CompletableFuture.java:1789)
+	at java.base/java.util.concurrent.CompletableFuture$AsyncSupply.exec(CompletableFuture.java:1781)
+	at java.base/java.util.concurrent.ForkJoinTask.doExec(ForkJoinTask.java:511)
+	at java.base/java.util.concurrent.ForkJoinPool$WorkQueue.topLevelExec(ForkJoinPool.java:1450)
+	at java.base/java.util.concurrent.ForkJoinPool.runWorker(ForkJoinPool.java:2019)
+	at java.base/java.util.concurrent.ForkJoinWorkerThread.run(ForkJoinWorkerThread.java:187)
+Caused by: java.lang.IllegalStateException: No key palette_id in MapLike[{asset_name:"redstone",description:{color:"#971607",translate:"trim_material.minecraft.redstone"}}]
+	at com.mojang.serialization.DataResult$Error.getOrThrow(DataResult.java:287)
+	at com.mojang.serialization.DataResult.getOrThrow(DataResult.java:81)
+	at net.minecraft.resources.RegistryLoadTask$PendingRegistration.loadFromNetwork(RegistryLoadTask.java:125)
+	... 7 more
+>> Errors in element minecraft:copper:
+java.lang.IllegalStateException: Failed to parse value {asset_name:"redstone",description:{color:"#971607",translate:"trim_material.minecraft.redstone"}} for key minecraft:copper from server
+	at net.minecraft.resources.RegistryLoadTask$PendingRegistration.loadFromNetwork(RegistryLoadTask.java:127)
+	at net.minecraft.resources.NetworkRegistryLoadTask.lambda$load$0(NetworkRegistryLoadTask.java:56)
+	at java.base/java.util.concurrent.CompletableFuture$AsyncSupply.run(CompletableFuture.java:1789)
+	at java.base/java.util.concurrent.CompletableFuture$AsyncSupply.exec(CompletableFuture.java:1781)
+	at java.base/java.util.concurrent.ForkJoinTask.doExec(ForkJoinTask.java:511)
+	at java.base/java.util.concurrent.ForkJoinPool$WorkQueue.topLevelExec(ForkJoinPool.java:1450)
+	at java.base/java.util.concurrent.ForkJoinPool.runWorker(ForkJoinPool.java:2019)
+	at java.base/java.util.concurrent.ForkJoinWorkerThread.run(ForkJoinWorkerThread.java:187)
+Caused by: java.lang.IllegalStateException: No key palette_id in MapLike[{asset_name:"redstone",description:{color:"#971607",translate:"trim_material.minecraft.redstone"}}]
+	at com.mojang.serialization.DataResult$Error.getOrThrow(DataResult.java:287)
+	at com.mojang.serialization.DataResult.getOrThrow(DataResult.java:81)
+	at net.minecraft.resources.RegistryLoadTask$PendingRegistration.loadFromNetwork(RegistryLoadTask.java:125)
+	... 7 more
+>> Errors in element minecraft:diamond:
+java.lang.IllegalStateException: Failed to parse value {asset_name:"redstone",description:{color:"#971607",translate:"trim_material.minecraft.redstone"}} for key minecraft:diamond from server
+	at net.minecraft.resources.RegistryLoadTask$PendingRegistration.loadFromNetwork(RegistryLoadTask.java:127)
+	at net.minecraft.resources.NetworkRegistryLoadTask.lambda$load$0(NetworkRegistryLoadTask.java:56)
+	at java.base/java.util.concurrent.CompletableFuture$AsyncSupply.run(CompletableFuture.java:1789)
+	at java.base/java.util.concurrent.CompletableFuture$AsyncSupply.exec(CompletableFuture.java:1781)
+	at java.base/java.util.concurrent.ForkJoinTask.doExec(ForkJoinTask.java:511)
+	at java.base/java.util.concurrent.ForkJoinPool$WorkQueue.topLevelExec(ForkJoinPool.java:1450)
+	at java.base/java.util.concurrent.ForkJoinPool.runWorker(ForkJoinPool.java:2019)
+	at java.base/java.util.concurrent.ForkJoinWorkerThread.run(ForkJoinWorkerThread.java:187)
+Caused by: java.lang.IllegalStateException: No key palette_id in MapLike[{asset_name:"redstone",description:{color:"#971607",translate:"trim_material.minecraft.redstone"}}]
+	at com.mojang.serialization.DataResult$Error.getOrThrow(DataResult.java:287)
+	at com.mojang.serialization.DataResult.getOrThrow(DataResult.java:81)
+	at net.minecraft.resources.RegistryLoadTask$PendingRegistration.loadFromNetwork(RegistryLoadTask.java:125)
+	... 7 more
+>> Errors in element minecraft:emerald:
+java.lang.IllegalStateException: Failed to parse value {asset_name:"redstone",description:{color:"#971607",translate:"trim_material.minecraft.redstone"}} for key minecraft:emerald from server
+	at net.minecraft.resources.RegistryLoadTask$PendingRegistration.loadFromNetwork(RegistryLoadTask.java:127)
+	at net.minecraft.resources.NetworkRegistryLoadTask.lambda$load$0(NetworkRegistryLoadTask.java:56)
+	at java.base/java.util.concurrent.CompletableFuture$AsyncSupply.run(CompletableFuture.java:1789)
+	at java.base/java.util.concurrent.CompletableFuture$AsyncSupply.exec(CompletableFuture.java:1781)
+	at java.base/java.util.concurrent.ForkJoinTask.doExec(ForkJoinTask.java:511)
+	at java.base/java.util.concurrent.ForkJoinPool$WorkQueue.topLevelExec(ForkJoinPool.java:1450)
+	at java.base/java.util.concurrent.ForkJoinPool.runWorker(ForkJoinPool.java:2019)
+	at java.base/java.util.concurrent.ForkJoinWorkerThread.run(ForkJoinWorkerThread.java:187)
+Caused by: java.lang.IllegalStateException: No key palette_id in MapLike[{asset_name:"redstone",description:{color:"#971607",translate:"trim_material.minecraft.redstone"}}]
+	at com.mojang.serialization.DataResult$Error.getOrThrow(DataResult.java:287)
+	at com.mojang.serialization.DataResult.getOrThrow(DataResult.java:81)
+	at net.minecraft.resources.RegistryLoadTask$PendingRegistration.loadFromNetwork(RegistryLoadTask.java:125)
+	... 7 more
+>> Errors in element minecraft:gold:
+java.lang.IllegalStateException: Failed to parse value {asset_name:"redstone",description:{color:"#971607",translate:"trim_material.minecraft.redstone"}} for key minecraft:gold from server
+	at net.minecraft.resources.RegistryLoadTask$PendingRegistration.loadFromNetwork(RegistryLoadTask.java:127)
+	at net.minecraft.resources.NetworkRegistryLoadTask.lambda$load$0(NetworkRegistryLoadTask.java:56)
+	at java.base/java.util.concurrent.CompletableFuture$AsyncSupply.run(CompletableFuture.java:1789)
+	at java.base/java.util.concurrent.CompletableFuture$AsyncSupply.exec(CompletableFuture.java:1781)
+	at java.base/java.util.concurrent.ForkJoinTask.doExec(ForkJoinTask.java:511)
+	at java.base/java.util.concurrent.ForkJoinPool$WorkQueue.topLevelExec(ForkJoinPool.java:1450)
+	at java.base/java.util.concurrent.ForkJoinPool.runWorker(ForkJoinPool.java:2019)
+	at java.base/java.util.concurrent.ForkJoinWorkerThread.run(ForkJoinWorkerThread.java:187)
+Caused by: java.lang.IllegalStateException: No key palette_id in MapLike[{asset_name:"redstone",description:{color:"#971607",translate:"trim_material.minecraft.redstone"}}]
+	at com.mojang.serialization.DataResult$Error.getOrThrow(DataResult.java:287)
+	at com.mojang.serialization.DataResult.getOrThrow(DataResult.java:81)
+	at net.minecraft.resources.RegistryLoadTask$PendingRegistration.loadFromNetwork(RegistryLoadTask.java:125)
+	... 7 more
+>> Errors in element minecraft:iron:
+java.lang.IllegalStateException: Failed to parse value {asset_name:"redstone",description:{color:"#971607",translate:"trim_material.minecraft.redstone"}} for key minecraft:iron from server
+	at net.minecraft.resources.RegistryLoadTask$PendingRegistration.loadFromNetwork(RegistryLoadTask.java:127)
+	at net.minecraft.resources.NetworkRegistryLoadTask.lambda$load$0(NetworkRegistryLoadTask.java:56)
+	at java.base/java.util.concurrent.CompletableFuture$AsyncSupply.run(CompletableFuture.java:1789)
+	at java.base/java.util.concurrent.CompletableFuture$AsyncSupply.exec(CompletableFuture.java:1781)
+	at java.base/java.util.concurrent.ForkJoinTask.doExec(ForkJoinTask.java:511)
+	at java.base/java.util.concurrent.ForkJoinPool$WorkQueue.topLevelExec(ForkJoinPool.java:1450)
+	at java.base/java.util.concurrent.ForkJoinPool.runWorker(ForkJoinPool.java:2019)
+	at java.base/java.util.concurrent.ForkJoinWorkerThread.run(ForkJoinWorkerThread.java:187)
+Caused by: java.lang.IllegalStateException: No key palette_id in MapLike[{asset_name:"redstone",description:{color:"#971607",translate:"trim_material.minecraft.redstone"}}]
+	at com.mojang.serialization.DataResult$Error.getOrThrow(DataResult.java:287)
+	at com.mojang.serialization.DataResult.getOrThrow(DataResult.java:81)
+	at net.minecraft.resources.RegistryLoadTask$PendingRegistration.loadFromNetwork(RegistryLoadTask.java:125)
+	... 7 more
+>> Errors in element minecraft:lapis:
+java.lang.IllegalStateException: Failed to parse value {asset_name:"redstone",description:{color:"#971607",translate:"trim_material.minecraft.redstone"}} for key minecraft:lapis from server
+	at net.minecraft.resources.RegistryLoadTask$PendingRegistration.loadFromNetwork(RegistryLoadTask.java:127)
+	at net.minecraft.resources.NetworkRegistryLoadTask.lambda$load$0(NetworkRegistryLoadTask.java:56)
+	at java.base/java.util.concurrent.CompletableFuture$AsyncSupply.run(CompletableFuture.java:1789)
+	at java.base/java.util.concurrent.CompletableFuture$AsyncSupply.exec(CompletableFuture.java:1781)
+	at java.base/java.util.concurrent.ForkJoinTask.doExec(ForkJoinTask.java:511)
+	at java.base/java.util.concurrent.ForkJoinPool$WorkQueue.topLevelExec(ForkJoinPool.java:1450)
+	at java.base/java.util.concurrent.ForkJoinPool.runWorker(ForkJoinPool.java:2019)
+	at java.base/java.util.concurrent.ForkJoinWorkerThread.run(ForkJoinWorkerThread.java:187)
+Caused by: java.lang.IllegalStateException: No key palette_id in MapLike[{asset_name:"redstone",description:{color:"#971607",translate:"trim_material.minecraft.redstone"}}]
+	at com.mojang.serialization.DataResult$Error.getOrThrow(DataResult.java:287)
+	at com.mojang.serialization.DataResult.getOrThrow(DataResult.java:81)
+	at net.minecraft.resources.RegistryLoadTask$PendingRegistration.loadFromNetwork(RegistryLoadTask.java:125)
+	... 7 more
+>> Errors in element minecraft:netherite:
+java.lang.IllegalStateException: Failed to parse value {asset_name:"redstone",description:{color:"#971607",translate:"trim_material.minecraft.redstone"}} for key minecraft:netherite from server
+	at net.minecraft.resources.RegistryLoadTask$PendingRegistration.loadFromNetwork(RegistryLoadTask.java:127)
+	at net.minecraft.resources.NetworkRegistryLoadTask.lambda$load$0(NetworkRegistryLoadTask.java:56)
+	at java.base/java.util.concurrent.CompletableFuture$AsyncSupply.run(CompletableFuture.java:1789)
+	at java.base/java.util.concurrent.CompletableFuture$AsyncSupply.exec(CompletableFuture.java:1781)
+	at java.base/java.util.concurrent.ForkJoinTask.doExec(ForkJoinTask.java:511)
+	at java.base/java.util.concurrent.ForkJoinPool$WorkQueue.topLevelExec(ForkJoinPool.java:1450)
+	at java.base/java.util.concurrent.ForkJoinPool.runWorker(ForkJoinPool.java:2019)
+	at java.base/java.util.concurrent.ForkJoinWorkerThread.run(ForkJoinWorkerThread.java:187)
+Caused by: java.lang.IllegalStateException: No key palette_id in MapLike[{asset_name:"redstone",description:{color:"#971607",translate:"trim_material.minecraft.redstone"}}]
+	at com.mojang.serialization.DataResult$Error.getOrThrow(DataResult.java:287)
+	at com.mojang.serialization.DataResult.getOrThrow(DataResult.java:81)
+	at net.minecraft.resources.RegistryLoadTask$PendingRegistration.loadFromNetwork(RegistryLoadTask.java:125)
+	... 7 more
+>> Errors in element minecraft:quartz:
+java.lang.IllegalStateException: Failed to parse value {asset_name:"redstone",description:{color:"#971607",translate:"trim_material.minecraft.redstone"}} for key minecraft:quartz from server
+	at net.minecraft.resources.RegistryLoadTask$PendingRegistration.loadFromNetwork(RegistryLoadTask.java:127)
+	at net.minecraft.resources.NetworkRegistryLoadTask.lambda$load$0(NetworkRegistryLoadTask.java:56)
+	at java.base/java.util.concurrent.CompletableFuture$AsyncSupply.run(CompletableFuture.java:1789)
+	at java.base/java.util.concurrent.CompletableFuture$AsyncSupply.exec(CompletableFuture.java:1781)
+	at java.base/java.util.concurrent.ForkJoinTask.doExec(ForkJoinTask.java:511)
+	at java.base/java.util.concurrent.ForkJoinPool$WorkQueue.topLevelExec(ForkJoinPool.java:1450)
+	at java.base/java.util.concurrent.ForkJoinPool.runWorker(ForkJoinPool.java:2019)
+	at java.base/java.util.concurrent.ForkJoinWorkerThread.run(ForkJoinWorkerThread.java:187)
+Caused by: java.lang.IllegalStateException: No key palette_id in MapLike[{asset_name:"redstone",description:{color:"#971607",translate:"trim_material.minecraft.redstone"}}]
+	at com.mojang.serialization.DataResult$Error.getOrThrow(DataResult.java:287)
+	at com.mojang.serialization.DataResult.getOrThrow(DataResult.java:81)
+	at net.minecraft.resources.RegistryLoadTask$PendingRegistration.loadFromNetwork(RegistryLoadTask.java:125)
+	... 7 more
+>> Errors in element minecraft:redstone:
+java.lang.IllegalStateException: Failed to parse value {asset_name:"redstone",description:{color:"#971607",translate:"trim_material.minecraft.redstone"}} for key minecraft:redstone from server
+	at net.minecraft.resources.RegistryLoadTask$PendingRegistration.loadFromNetwork(RegistryLoadTask.java:127)
+	at net.minecraft.resources.NetworkRegistryLoadTask.lambda$load$0(NetworkRegistryLoadTask.java:56)
+	at java.base/java.util.concurrent.CompletableFuture$AsyncSupply.run(CompletableFuture.java:1789)
+	at java.base/java.util.concurrent.CompletableFuture$AsyncSupply.exec(CompletableFuture.java:1781)
+	at java.base/java.util.concurrent.ForkJoinTask.doExec(ForkJoinTask.java:511)
+	at java.base/java.util.concurrent.ForkJoinPool$WorkQueue.topLevelExec(ForkJoinPool.java:1450)
+	at java.base/java.util.concurrent.ForkJoinPool.runWorker(ForkJoinPool.java:2019)
+	at java.base/java.util.concurrent.ForkJoinWorkerThread.run(ForkJoinWorkerThread.java:187)
+Caused by: java.lang.IllegalStateException: No key palette_id in MapLike[{asset_name:"redstone",description:{color:"#971607",translate:"trim_material.minecraft.redstone"}}]
+	at com.mojang.serialization.DataResult$Error.getOrThrow(DataResult.java:287)
+	at com.mojang.serialization.DataResult.getOrThrow(DataResult.java:81)
+	at net.minecraft.resources.RegistryLoadTask$PendingRegistration.loadFromNetwork(RegistryLoadTask.java:125)
+	... 7 more
+>> Errors in element minecraft:resin:
+java.lang.IllegalStateException: Failed to parse value {asset_name:"redstone",description:{color:"#971607",translate:"trim_material.minecraft.redstone"}} for key minecraft:resin from server
+	at net.minecraft.resources.RegistryLoadTask$PendingRegistration.loadFromNetwork(RegistryLoadTask.java:127)
+	at net.minecraft.resources.NetworkRegistryLoadTask.lambda$load$0(NetworkRegistryLoadTask.java:56)
+	at java.base/java.util.concurrent.CompletableFuture$AsyncSupply.run(CompletableFuture.java:1789)
+	at java.base/java.util.concurrent.CompletableFuture$AsyncSupply.exec(CompletableFuture.java:1781)
+	at java.base/java.util.concurrent.ForkJoinTask.doExec(ForkJoinTask.java:511)
+	at java.base/java.util.concurrent.ForkJoinPool$WorkQueue.topLevelExec(ForkJoinPool.java:1450)
+	at java.base/java.util.concurrent.ForkJoinPool.runWorker(ForkJoinPool.java:2019)
+	at java.base/java.util.concurrent.ForkJoinWorkerThread.run(ForkJoinWorkerThread.java:187)
+Caused by: java.lang.IllegalStateException: No key palette_id in MapLike[{asset_name:"redstone",description:{color:"#971607",translate:"trim_material.minecraft.redstone"}}]
+	at com.mojang.serialization.DataResult$Error.getOrThrow(DataResult.java:287)
+	at com.mojang.serialization.DataResult.getOrThrow(DataResult.java:81)
+	at net.minecraft.resources.RegistryLoadTask$PendingRegistration.loadFromNetwork(RegistryLoadTask.java:125)
+	... 7 more
+
+[12:07:48] [Render thread/ERROR]: Negative index in crash report handler (9/13)
+[12:07:48] [Render thread/ERROR]: Failed to handle packet net.minecraft.network.protocol.configuration.ClientboundFinishConfigurationPacket@44e2990d, disconnecting
+net.minecraft.ReportedException: Registry Loading
+	at net.minecraft.client.multiplayer.RegistryDataCollector.loadNewElementsAndTags(RegistryDataCollector.java:106)
+	at net.minecraft.client.multiplayer.RegistryDataCollector.collectGameRegistries(RegistryDataCollector.java:161)
+	at net.minecraft.client.multiplayer.ClientConfigurationPacketListenerImpl.lambda$handleConfigurationFinished$0(ClientConfigurationPacketListenerImpl.java:153)
+	at net.minecraft.client.multiplayer.ClientConfigurationPacketListenerImpl.runWithResources(ClientConfigurationPacketListenerImpl.java:117)
+	at net.minecraft.client.multiplayer.ClientConfigurationPacketListenerImpl.handleConfigurationFinished(ClientConfigurationPacketListenerImpl.java:153)
+	at net.minecraft.network.protocol.configuration.ClientboundFinishConfigurationPacket.handle(ClientboundFinishConfigurationPacket.java:22)
+	at net.minecraft.network.protocol.configuration.ClientboundFinishConfigurationPacket.handle(ClientboundFinishConfigurationPacket.java:8)
+	at net.minecraft.network.PacketProcessor$ListenerAndPacket.handle(PacketProcessor.java:55)
+	at net.minecraft.network.PacketProcessor.processQueuedPackets(PacketProcessor.java:38)
+	at net.minecraft.client.Minecraft.runTick(Minecraft.java:1238)
+	at net.minecraft.client.Minecraft.run(Minecraft.java:967)
+	at net.minecraft.client.main.Main.main(Main.java:292)
+Caused by: java.lang.IllegalStateException: Failed to load registries due to errors
+	at net.minecraft.resources.RegistryDataLoader.createReportWithBriefInfo(RegistryDataLoader.java:313)
+	at net.minecraft.resources.RegistryDataLoader.logErrors(RegistryDataLoader.java:294)
+	at net.minecraft.resources.RegistryDataLoader.lambda$load$2(RegistryDataLoader.java:263)
+	at java.base/java.util.concurrent.CompletableFuture$UniApply.tryFire(CompletableFuture.java:667)
+	at java.base/java.util.concurrent.CompletableFuture$Completion.exec(CompletableFuture.java:504)
+	at java.base/java.util.concurrent.ForkJoinTask.doExec(ForkJoinTask.java:511)
+	at java.base/java.util.concurrent.ForkJoinPool$WorkQueue.topLevelExec(ForkJoinPool.java:1450)
+	at java.base/java.util.concurrent.ForkJoinPool.runWorker(ForkJoinPool.java:2019)
+	at java.base/java.util.concurrent.ForkJoinWorkerThread.run(ForkJoinWorkerThread.java:187)
+[12:07:48] [Render thread/WARN]: Client disconnected with reason: 网络协议错误
+[12:08:20] [Render thread/INFO]: Connecting to play.mchsy.top, 25565
+[12:08:20] [Worker-Main-35/ERROR]: Registry loading errors:
+> Errors in registry minecraft:trim_material:
+>> Errors in element minecraft:amethyst:
+java.lang.IllegalStateException: Failed to parse value {asset_name:"redstone",description:{color:"#971607",translate:"trim_material.minecraft.redstone"}} for key minecraft:amethyst from server
+	at net.minecraft.resources.RegistryLoadTask$PendingRegistration.loadFromNetwork(RegistryLoadTask.java:127)
+	at net.minecraft.resources.NetworkRegistryLoadTask.lambda$load$0(NetworkRegistryLoadTask.java:56)
+	at java.base/java.util.concurrent.CompletableFuture$AsyncSupply.run(CompletableFuture.java:1789)
+	at java.base/java.util.concurrent.CompletableFuture$AsyncSupply.exec(CompletableFuture.java:1781)
+	at java.base/java.util.concurrent.ForkJoinTask.doExec(ForkJoinTask.java:511)
+	at java.base/java.util.concurrent.ForkJoinPool$WorkQueue.topLevelExec(ForkJoinPool.java:1450)
+	at java.base/java.util.concurrent.ForkJoinPool.runWorker(ForkJoinPool.java:2019)
+	at java.base/java.util.concurrent.ForkJoinWorkerThread.run(ForkJoinWorkerThread.java:187)
+Caused by: java.lang.IllegalStateException: No key palette_id in MapLike[{asset_name:"redstone",description:{color:"#971607",translate:"trim_material.minecraft.redstone"}}]
+	at com.mojang.serialization.DataResult$Error.getOrThrow(DataResult.java:287)
+	at com.mojang.serialization.DataResult.getOrThrow(DataResult.java:81)
+	at net.minecraft.resources.RegistryLoadTask$PendingRegistration.loadFromNetwork(RegistryLoadTask.java:125)
+	... 7 more
+>> Errors in element minecraft:copper:
+java.lang.IllegalStateException: Failed to parse value {asset_name:"redstone",description:{color:"#971607",translate:"trim_material.minecraft.redstone"}} for key minecraft:copper from server
+	at net.minecraft.resources.RegistryLoadTask$PendingRegistration.loadFromNetwork(RegistryLoadTask.java:127)
+	at net.minecraft.resources.NetworkRegistryLoadTask.lambda$load$0(NetworkRegistryLoadTask.java:56)
+	at java.base/java.util.concurrent.CompletableFuture$AsyncSupply.run(CompletableFuture.java:1789)
+	at java.base/java.util.concurrent.CompletableFuture$AsyncSupply.exec(CompletableFuture.java:1781)
+	at java.base/java.util.concurrent.ForkJoinTask.doExec(ForkJoinTask.java:511)
+	at java.base/java.util.concurrent.ForkJoinPool$WorkQueue.topLevelExec(ForkJoinPool.java:1450)
+	at java.base/java.util.concurrent.ForkJoinPool.runWorker(ForkJoinPool.java:2019)
+	at java.base/java.util.concurrent.ForkJoinWorkerThread.run(ForkJoinWorkerThread.java:187)
+Caused by: java.lang.IllegalStateException: No key palette_id in MapLike[{asset_name:"redstone",description:{color:"#971607",translate:"trim_material.minecraft.redstone"}}]
+	at com.mojang.serialization.DataResult$Error.getOrThrow(DataResult.java:287)
+	at com.mojang.serialization.DataResult.getOrThrow(DataResult.java:81)
+	at net.minecraft.resources.RegistryLoadTask$PendingRegistration.loadFromNetwork(RegistryLoadTask.java:125)
+	... 7 more
+>> Errors in element minecraft:diamond:
+java.lang.IllegalStateException: Failed to parse value {asset_name:"redstone",description:{color:"#971607",translate:"trim_material.minecraft.redstone"}} for key minecraft:diamond from server
+	at net.minecraft.resources.RegistryLoadTask$PendingRegistration.loadFromNetwork(RegistryLoadTask.java:127)
+	at net.minecraft.resources.NetworkRegistryLoadTask.lambda$load$0(NetworkRegistryLoadTask.java:56)
+	at java.base/java.util.concurrent.CompletableFuture$AsyncSupply.run(CompletableFuture.java:1789)
+	at java.base/java.util.concurrent.CompletableFuture$AsyncSupply.exec(CompletableFuture.java:1781)
+	at java.base/java.util.concurrent.ForkJoinTask.doExec(ForkJoinTask.java:511)
+	at java.base/java.util.concurrent.ForkJoinPool$WorkQueue.topLevelExec(ForkJoinPool.java:1450)
+	at java.base/java.util.concurrent.ForkJoinPool.runWorker(ForkJoinPool.java:2019)
+	at java.base/java.util.concurrent.ForkJoinWorkerThread.run(ForkJoinWorkerThread.java:187)
+Caused by: java.lang.IllegalStateException: No key palette_id in MapLike[{asset_name:"redstone",description:{color:"#971607",translate:"trim_material.minecraft.redstone"}}]
+	at com.mojang.serialization.DataResult$Error.getOrThrow(DataResult.java:287)
+	at com.mojang.serialization.DataResult.getOrThrow(DataResult.java:81)
+	at net.minecraft.resources.RegistryLoadTask$PendingRegistration.loadFromNetwork(RegistryLoadTask.java:125)
+	... 7 more
+>> Errors in element minecraft:emerald:
+java.lang.IllegalStateException: Failed to parse value {asset_name:"redstone",description:{color:"#971607",translate:"trim_material.minecraft.redstone"}} for key minecraft:emerald from server
+	at net.minecraft.resources.RegistryLoadTask$PendingRegistration.loadFromNetwork(RegistryLoadTask.java:127)
+	at net.minecraft.resources.NetworkRegistryLoadTask.lambda$load$0(NetworkRegistryLoadTask.java:56)
+	at java.base/java.util.concurrent.CompletableFuture$AsyncSupply.run(CompletableFuture.java:1789)
+	at java.base/java.util.concurrent.CompletableFuture$AsyncSupply.exec(CompletableFuture.java:1781)
+	at java.base/java.util.concurrent.ForkJoinTask.doExec(ForkJoinTask.java:511)
+	at java.base/java.util.concurrent.ForkJoinPool$WorkQueue.topLevelExec(ForkJoinPool.java:1450)
+	at java.base/java.util.concurrent.ForkJoinPool.runWorker(ForkJoinPool.java:2019)
+	at java.base/java.util.concurrent.ForkJoinWorkerThread.run(ForkJoinWorkerThread.java:187)
+Caused by: java.lang.IllegalStateException: No key palette_id in MapLike[{asset_name:"redstone",description:{color:"#971607",translate:"trim_material.minecraft.redstone"}}]
+	at com.mojang.serialization.DataResult$Error.getOrThrow(DataResult.java:287)
+	at com.mojang.serialization.DataResult.getOrThrow(DataResult.java:81)
+	at net.minecraft.resources.RegistryLoadTask$PendingRegistration.loadFromNetwork(RegistryLoadTask.java:125)
+	... 7 more
+>> Errors in element minecraft:gold:
+java.lang.IllegalStateException: Failed to parse value {asset_name:"redstone",description:{color:"#971607",translate:"trim_material.minecraft.redstone"}} for key minecraft:gold from server
+	at net.minecraft.resources.RegistryLoadTask$PendingRegistration.loadFromNetwork(RegistryLoadTask.java:127)
+	at net.minecraft.resources.NetworkRegistryLoadTask.lambda$load$0(NetworkRegistryLoadTask.java:56)
+	at java.base/java.util.concurrent.CompletableFuture$AsyncSupply.run(CompletableFuture.java:1789)
+	at java.base/java.util.concurrent.CompletableFuture$AsyncSupply.exec(CompletableFuture.java:1781)
+	at java.base/java.util.concurrent.ForkJoinTask.doExec(ForkJoinTask.java:511)
+	at java.base/java.util.concurrent.ForkJoinPool$WorkQueue.topLevelExec(ForkJoinPool.java:1450)
+	at java.base/java.util.concurrent.ForkJoinPool.runWorker(ForkJoinPool.java:2019)
+	at java.base/java.util.concurrent.ForkJoinWorkerThread.run(ForkJoinWorkerThread.java:187)
+Caused by: java.lang.IllegalStateException: No key palette_id in MapLike[{asset_name:"redstone",description:{color:"#971607",translate:"trim_material.minecraft.redstone"}}]
+	at com.mojang.serialization.DataResult$Error.getOrThrow(DataResult.java:287)
+	at com.mojang.serialization.DataResult.getOrThrow(DataResult.java:81)
+	at net.minecraft.resources.RegistryLoadTask$PendingRegistration.loadFromNetwork(RegistryLoadTask.java:125)
+	... 7 more
+>> Errors in element minecraft:iron:
+java.lang.IllegalStateException: Failed to parse value {asset_name:"redstone",description:{color:"#971607",translate:"trim_material.minecraft.redstone"}} for key minecraft:iron from server
+	at net.minecraft.resources.RegistryLoadTask$PendingRegistration.loadFromNetwork(RegistryLoadTask.java:127)
+	at net.minecraft.resources.NetworkRegistryLoadTask.lambda$load$0(NetworkRegistryLoadTask.java:56)
+	at java.base/java.util.concurrent.CompletableFuture$AsyncSupply.run(CompletableFuture.java:1789)
+	at java.base/java.util.concurrent.CompletableFuture$AsyncSupply.exec(CompletableFuture.java:1781)
+	at java.base/java.util.concurrent.ForkJoinTask.doExec(ForkJoinTask.java:511)
+	at java.base/java.util.concurrent.ForkJoinPool$WorkQueue.topLevelExec(ForkJoinPool.java:1450)
+	at java.base/java.util.concurrent.ForkJoinPool.runWorker(ForkJoinPool.java:2019)
+	at java.base/java.util.concurrent.ForkJoinWorkerThread.run(ForkJoinWorkerThread.java:187)
+Caused by: java.lang.IllegalStateException: No key palette_id in MapLike[{asset_name:"redstone",description:{color:"#971607",translate:"trim_material.minecraft.redstone"}}]
+	at com.mojang.serialization.DataResult$Error.getOrThrow(DataResult.java:287)
+	at com.mojang.serialization.DataResult.getOrThrow(DataResult.java:81)
+	at net.minecraft.resources.RegistryLoadTask$PendingRegistration.loadFromNetwork(RegistryLoadTask.java:125)
+	... 7 more
+>> Errors in element minecraft:lapis:
+java.lang.IllegalStateException: Failed to parse value {asset_name:"redstone",description:{color:"#971607",translate:"trim_material.minecraft.redstone"}} for key minecraft:lapis from server
+	at net.minecraft.resources.RegistryLoadTask$PendingRegistration.loadFromNetwork(RegistryLoadTask.java:127)
+	at net.minecraft.resources.NetworkRegistryLoadTask.lambda$load$0(NetworkRegistryLoadTask.java:56)
+	at java.base/java.util.concurrent.CompletableFuture$AsyncSupply.run(CompletableFuture.java:1789)
+	at java.base/java.util.concurrent.CompletableFuture$AsyncSupply.exec(CompletableFuture.java:1781)
+	at java.base/java.util.concurrent.ForkJoinTask.doExec(ForkJoinTask.java:511)
+	at java.base/java.util.concurrent.ForkJoinPool$WorkQueue.topLevelExec(ForkJoinPool.java:1450)
+	at java.base/java.util.concurrent.ForkJoinPool.runWorker(ForkJoinPool.java:2019)
+	at java.base/java.util.concurrent.ForkJoinWorkerThread.run(ForkJoinWorkerThread.java:187)
+Caused by: java.lang.IllegalStateException: No key palette_id in MapLike[{asset_name:"redstone",description:{color:"#971607",translate:"trim_material.minecraft.redstone"}}]
+	at com.mojang.serialization.DataResult$Error.getOrThrow(DataResult.java:287)
+	at com.mojang.serialization.DataResult.getOrThrow(DataResult.java:81)
+	at net.minecraft.resources.RegistryLoadTask$PendingRegistration.loadFromNetwork(RegistryLoadTask.java:125)
+	... 7 more
+>> Errors in element minecraft:netherite:
+java.lang.IllegalStateException: Failed to parse value {asset_name:"redstone",description:{color:"#971607",translate:"trim_material.minecraft.redstone"}} for key minecraft:netherite from server
+	at net.minecraft.resources.RegistryLoadTask$PendingRegistration.loadFromNetwork(RegistryLoadTask.java:127)
+	at net.minecraft.resources.NetworkRegistryLoadTask.lambda$load$0(NetworkRegistryLoadTask.java:56)
+	at java.base/java.util.concurrent.CompletableFuture$AsyncSupply.run(CompletableFuture.java:1789)
+	at java.base/java.util.concurrent.CompletableFuture$AsyncSupply.exec(CompletableFuture.java:1781)
+	at java.base/java.util.concurrent.ForkJoinTask.doExec(ForkJoinTask.java:511)
+	at java.base/java.util.concurrent.ForkJoinPool$WorkQueue.topLevelExec(ForkJoinPool.java:1450)
+	at java.base/java.util.concurrent.ForkJoinPool.runWorker(ForkJoinPool.java:2019)
+	at java.base/java.util.concurrent.ForkJoinWorkerThread.run(ForkJoinWorkerThread.java:187)
+Caused by: java.lang.IllegalStateException: No key palette_id in MapLike[{asset_name:"redstone",description:{color:"#971607",translate:"trim_material.minecraft.redstone"}}]
+	at com.mojang.serialization.DataResult$Error.getOrThrow(DataResult.java:287)
+	at com.mojang.serialization.DataResult.getOrThrow(DataResult.java:81)
+	at net.minecraft.resources.RegistryLoadTask$PendingRegistration.loadFromNetwork(RegistryLoadTask.java:125)
+	... 7 more
+>> Errors in element minecraft:quartz:
+java.lang.IllegalStateException: Failed to parse value {asset_name:"redstone",description:{color:"#971607",translate:"trim_material.minecraft.redstone"}} for key minecraft:quartz from server
+	at net.minecraft.resources.RegistryLoadTask$PendingRegistration.loadFromNetwork(RegistryLoadTask.java:127)
+	at net.minecraft.resources.NetworkRegistryLoadTask.lambda$load$0(NetworkRegistryLoadTask.java:56)
+	at java.base/java.util.concurrent.CompletableFuture$AsyncSupply.run(CompletableFuture.java:1789)
+	at java.base/java.util.concurrent.CompletableFuture$AsyncSupply.exec(CompletableFuture.java:1781)
+	at java.base/java.util.concurrent.ForkJoinTask.doExec(ForkJoinTask.java:511)
+	at java.base/java.util.concurrent.ForkJoinPool$WorkQueue.topLevelExec(ForkJoinPool.java:1450)
+	at java.base/java.util.concurrent.ForkJoinPool.runWorker(ForkJoinPool.java:2019)
+	at java.base/java.util.concurrent.ForkJoinWorkerThread.run(ForkJoinWorkerThread.java:187)
+Caused by: java.lang.IllegalStateException: No key palette_id in MapLike[{asset_name:"redstone",description:{color:"#971607",translate:"trim_material.minecraft.redstone"}}]
+	at com.mojang.serialization.DataResult$Error.getOrThrow(DataResult.java:287)
+	at com.mojang.serialization.DataResult.getOrThrow(DataResult.java:81)
+	at net.minecraft.resources.RegistryLoadTask$PendingRegistration.loadFromNetwork(RegistryLoadTask.java:125)
+	... 7 more
+>> Errors in element minecraft:redstone:
+java.lang.IllegalStateException: Failed to parse value {asset_name:"redstone",description:{color:"#971607",translate:"trim_material.minecraft.redstone"}} for key minecraft:redstone from server
+	at net.minecraft.resources.RegistryLoadTask$PendingRegistration.loadFromNetwork(RegistryLoadTask.java:127)
+	at net.minecraft.resources.NetworkRegistryLoadTask.lambda$load$0(NetworkRegistryLoadTask.java:56)
+	at java.base/java.util.concurrent.CompletableFuture$AsyncSupply.run(CompletableFuture.java:1789)
+	at java.base/java.util.concurrent.CompletableFuture$AsyncSupply.exec(CompletableFuture.java:1781)
+	at java.base/java.util.concurrent.ForkJoinTask.doExec(ForkJoinTask.java:511)
+	at java.base/java.util.concurrent.ForkJoinPool$WorkQueue.topLevelExec(ForkJoinPool.java:1450)
+	at java.base/java.util.concurrent.ForkJoinPool.runWorker(ForkJoinPool.java:2019)
+	at java.base/java.util.concurrent.ForkJoinWorkerThread.run(ForkJoinWorkerThread.java:187)
+Caused by: java.lang.IllegalStateException: No key palette_id in MapLike[{asset_name:"redstone",description:{color:"#971607",translate:"trim_material.minecraft.redstone"}}]
+	at com.mojang.serialization.DataResult$Error.getOrThrow(DataResult.java:287)
+	at com.mojang.serialization.DataResult.getOrThrow(DataResult.java:81)
+	at net.minecraft.resources.RegistryLoadTask$PendingRegistration.loadFromNetwork(RegistryLoadTask.java:125)
+	... 7 more
+>> Errors in element minecraft:resin:
+java.lang.IllegalStateException: Failed to parse value {asset_name:"redstone",description:{color:"#971607",translate:"trim_material.minecraft.redstone"}} for key minecraft:resin from server
+	at net.minecraft.resources.RegistryLoadTask$PendingRegistration.loadFromNetwork(RegistryLoadTask.java:127)
+	at net.minecraft.resources.NetworkRegistryLoadTask.lambda$load$0(NetworkRegistryLoadTask.java:56)
+	at java.base/java.util.concurrent.CompletableFuture$AsyncSupply.run(CompletableFuture.java:1789)
+	at java.base/java.util.concurrent.CompletableFuture$AsyncSupply.exec(CompletableFuture.java:1781)
+	at java.base/java.util.concurrent.ForkJoinTask.doExec(ForkJoinTask.java:511)
+	at java.base/java.util.concurrent.ForkJoinPool$WorkQueue.topLevelExec(ForkJoinPool.java:1450)
+	at java.base/java.util.concurrent.ForkJoinPool.runWorker(ForkJoinPool.java:2019)
+	at java.base/java.util.concurrent.ForkJoinWorkerThread.run(ForkJoinWorkerThread.java:187)
+Caused by: java.lang.IllegalStateException: No key palette_id in MapLike[{asset_name:"redstone",description:{color:"#971607",translate:"trim_material.minecraft.redstone"}}]
+	at com.mojang.serialization.DataResult$Error.getOrThrow(DataResult.java:287)
+	at com.mojang.serialization.DataResult.getOrThrow(DataResult.java:81)
+	at net.minecraft.resources.RegistryLoadTask$PendingRegistration.loadFromNetwork(RegistryLoadTask.java:125)
+	... 7 more
+
+[12:08:20] [Render thread/ERROR]: Negative index in crash report handler (9/13)
+[12:08:20] [Render thread/ERROR]: Failed to handle packet net.minecraft.network.protocol.configuration.ClientboundFinishConfigurationPacket@44e2990d, disconnecting
+net.minecraft.ReportedException: Registry Loading
+	at net.minecraft.client.multiplayer.RegistryDataCollector.loadNewElementsAndTags(RegistryDataCollector.java:106)
+	at net.minecraft.client.multiplayer.RegistryDataCollector.collectGameRegistries(RegistryDataCollector.java:161)
+	at net.minecraft.client.multiplayer.ClientConfigurationPacketListenerImpl.lambda$handleConfigurationFinished$0(ClientConfigurationPacketListenerImpl.java:153)
+	at net.minecraft.client.multiplayer.ClientConfigurationPacketListenerImpl.runWithResources(ClientConfigurationPacketListenerImpl.java:117)
+	at net.minecraft.client.multiplayer.ClientConfigurationPacketListenerImpl.handleConfigurationFinished(ClientConfigurationPacketListenerImpl.java:153)
+	at net.minecraft.network.protocol.configuration.ClientboundFinishConfigurationPacket.handle(ClientboundFinishConfigurationPacket.java:22)
+	at net.minecraft.network.protocol.configuration.ClientboundFinishConfigurationPacket.handle(ClientboundFinishConfigurationPacket.java:8)
+	at net.minecraft.network.PacketProcessor$ListenerAndPacket.handle(PacketProcessor.java:55)
+	at net.minecraft.network.PacketProcessor.processQueuedPackets(PacketProcessor.java:38)
+	at net.minecraft.client.Minecraft.runTick(Minecraft.java:1238)
+	at net.minecraft.client.Minecraft.run(Minecraft.java:967)
+	at net.minecraft.client.main.Main.main(Main.java:292)
+Caused by: java.lang.IllegalStateException: Failed to load registries due to errors
+	at net.minecraft.resources.RegistryDataLoader.createReportWithBriefInfo(RegistryDataLoader.java:313)
+	at net.minecraft.resources.RegistryDataLoader.logErrors(RegistryDataLoader.java:294)
+	at net.minecraft.resources.RegistryDataLoader.lambda$load$2(RegistryDataLoader.java:263)
+	at java.base/java.util.concurrent.CompletableFuture$UniApply.tryFire(CompletableFuture.java:667)
+	at java.base/java.util.concurrent.CompletableFuture$Completion.exec(CompletableFuture.java:504)
+	at java.base/java.util.concurrent.ForkJoinTask.doExec(ForkJoinTask.java:511)
+	at java.base/java.util.concurrent.ForkJoinPool$WorkQueue.topLevelExec(ForkJoinPool.java:1450)
+	at java.base/java.util.concurrent.ForkJoinPool.runWorker(ForkJoinPool.java:2019)
+	at java.base/java.util.concurrent.ForkJoinWorkerThread.run(ForkJoinWorkerThread.java:187)
+[12:08:20] [Render thread/WARN]: Client disconnected with reason: 网络协议错误
+[12:09:40] [Render thread/INFO]: Stopping!

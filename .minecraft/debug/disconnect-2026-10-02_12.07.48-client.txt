@@ -1,0 +1,152 @@
+---- Minecraft Network Protocol Error Report ----
+// I heard pigeons are more reliable
+
+Time: 2026-10-02 12:07:48
+Description: Registry Loading
+
+java.lang.IllegalStateException: Failed to load registries due to errors
+	at net.minecraft.resources.RegistryDataLoader.createReportWithBriefInfo(RegistryDataLoader.java:313)
+	at net.minecraft.resources.RegistryDataLoader.logErrors(RegistryDataLoader.java:294)
+	at net.minecraft.resources.RegistryDataLoader.lambda$load$2(RegistryDataLoader.java:263)
+	at java.base/java.util.concurrent.CompletableFuture$UniApply.tryFire(CompletableFuture.java:667)
+	at java.base/java.util.concurrent.CompletableFuture$Completion.exec(CompletableFuture.java:504)
+	at java.base/java.util.concurrent.ForkJoinTask.doExec(ForkJoinTask.java:511)
+	at java.base/java.util.concurrent.ForkJoinPool$WorkQueue.topLevelExec(ForkJoinPool.java:1450)
+	at java.base/java.util.concurrent.ForkJoinPool.runWorker(ForkJoinPool.java:2019)
+	at java.base/java.util.concurrent.ForkJoinWorkerThread.run(ForkJoinWorkerThread.java:187)
+
+
+A detailed walkthrough of the error, its code path and all known details is as follows:
+---------------------------------------------------------------------------------------
+
+-- Head --
+Thread: Render thread
+Stacktrace:
+	at net.minecraft.resources.RegistryDataLoader.createReportWithBriefInfo(RegistryDataLoader.java:313)
+
+-- Loading info --
+Details:
+	Errors: 
+		minecraft:trim_material/minecraft:amethyst: Failed to parse value {asset_name:"redstone",description:{color:"#971607",translate:"trim_material.minecraft.redstone"}} for key minecraft:amethyst from server
+		minecraft:trim_material/minecraft:copper: Failed to parse value {asset_name:"redstone",description:{color:"#971607",translate:"trim_material.minecraft.redstone"}} for key minecraft:copper from server
+		minecraft:trim_material/minecraft:diamond: Failed to parse value {asset_name:"redstone",description:{color:"#971607",translate:"trim_material.minecraft.redstone"}} for key minecraft:diamond from server
+		minecraft:trim_material/minecraft:emerald: Failed to parse value {asset_name:"redstone",description:{color:"#971607",translate:"trim_material.minecraft.redstone"}} for key minecraft:emerald from server
+		minecraft:trim_material/minecraft:gold: Failed to parse value {asset_name:"redstone",description:{color:"#971607",translate:"trim_material.minecraft.redstone"}} for key minecraft:gold from server
+		minecraft:trim_material/minecraft:iron: Failed to parse value {asset_name:"redstone",description:{color:"#971607",translate:"trim_material.minecraft.redstone"}} for key minecraft:iron from server
+		minecraft:trim_material/minecraft:lapis: Failed to parse value {asset_name:"redstone",description:{color:"#971607",translate:"trim_material.minecraft.redstone"}} for key minecraft:lapis from server
+		minecraft:trim_material/minecraft:netherite: Failed to parse value {asset_name:"redstone",description:{color:"#971607",translate:"trim_material.minecraft.redstone"}} for key minecraft:netherite from server
+		minecraft:trim_material/minecraft:quartz: Failed to parse value {asset_name:"redstone",description:{color:"#971607",translate:"trim_material.minecraft.redstone"}} for key minecraft:quartz from server
+		minecraft:trim_material/minecraft:redstone: Failed to parse value {asset_name:"redstone",description:{color:"#971607",translate:"trim_material.minecraft.redstone"}} for key minecraft:redstone from server
+		minecraft:trim_material/minecraft:resin: Failed to parse value {asset_name:"redstone",description:{color:"#971607",translate:"trim_material.minecraft.redstone"}} for key minecraft:resin from server
+Stacktrace:
+	at net.minecraft.resources.RegistryDataLoader.createReportWithBriefInfo(RegistryDataLoader.java:313)
+	at net.minecraft.resources.RegistryDataLoader.logErrors(RegistryDataLoader.java:294)
+	at net.minecraft.resources.RegistryDataLoader.lambda$load$2(RegistryDataLoader.java:263)
+	at java.base/java.util.concurrent.CompletableFuture$UniApply.tryFire(CompletableFuture.java:667)
+	at java.base/java.util.concurrent.CompletableFuture$Completion.exec(CompletableFuture.java:504)
+	at java.base/java.util.concurrent.ForkJoinTask.doExec(ForkJoinTask.java:511)
+	at java.base/java.util.concurrent.ForkJoinPool$WorkQueue.topLevelExec(ForkJoinPool.java:1450)
+	at java.base/java.util.concurrent.ForkJoinPool.runWorker(ForkJoinPool.java:2019)
+	at java.base/java.util.concurrent.ForkJoinWorkerThread.run(ForkJoinWorkerThread.java:187)
+
+-- Received Elements and Tags --
+Details:
+	Dynamic Registries: 
+		minecraft:banner_pattern: elements=0 tags=11
+		minecraft:cat_sound_variant: elements=1 tags=0
+		minecraft:cat_variant: elements=1 tags=0
+		minecraft:chat_type: elements=2 tags=0
+		minecraft:chicken_sound_variant: elements=1 tags=0
+		minecraft:chicken_variant: elements=3 tags=0
+		minecraft:cow_sound_variant: elements=1 tags=0
+		minecraft:cow_variant: elements=1 tags=0
+		minecraft:damage_type: elements=48 tags=34
+		minecraft:dimension_type: elements=3 tags=0
+		minecraft:frog_variant: elements=1 tags=0
+		minecraft:instrument: elements=8 tags=0
+		minecraft:jukebox_song: elements=22 tags=0
+		minecraft:painting_variant: elements=1 tags=0
+		minecraft:pig_sound_variant: elements=1 tags=0
+		minecraft:pig_variant: elements=1 tags=0
+		minecraft:timeline: elements=1 tags=0
+		minecraft:trim_material: elements=11 tags=0
+		minecraft:wolf_sound_variant: elements=1 tags=0
+		minecraft:wolf_variant: elements=1 tags=0
+		minecraft:world_clock: elements=1 tags=0
+		minecraft:worldgen/biome: elements=135 tags=0
+		minecraft:zombie_nautilus_variant: elements=1 tags=0
+	Static Registries: 
+		minecraft:block: tags=187
+		minecraft:entity_type: tags=29
+		minecraft:fluid: tags=2
+		minecraft:game_event: tags=5
+		minecraft:item: tags=153
+Stacktrace:
+	at net.minecraft.client.multiplayer.RegistryDataCollector.addCrashDetails(RegistryDataCollector.java:119)
+	at net.minecraft.client.multiplayer.RegistryDataCollector.loadNewElementsAndTags(RegistryDataCollector.java:105)
+	at net.minecraft.client.multiplayer.RegistryDataCollector.collectGameRegistries(RegistryDataCollector.java:161)
+	at net.minecraft.client.multiplayer.ClientConfigurationPacketListenerImpl.lambda$handleConfigurationFinished$0(ClientConfigurationPacketListenerImpl.java:153)
+	at net.minecraft.client.multiplayer.ClientConfigurationPacketListenerImpl.runWithResources(ClientConfigurationPacketListenerImpl.java:117)
+	at net.minecraft.client.multiplayer.ClientConfigurationPacketListenerImpl.handleConfigurationFinished(ClientConfigurationPacketListenerImpl.java:153)
+	at net.minecraft.network.protocol.configuration.ClientboundFinishConfigurationPacket.handle(ClientboundFinishConfigurationPacket.java:22)
+	at net.minecraft.network.protocol.configuration.ClientboundFinishConfigurationPacket.handle(ClientboundFinishConfigurationPacket.java:8)
+	at net.minecraft.network.PacketProcessor$ListenerAndPacket.handle(PacketProcessor.java:55)
+	at net.minecraft.network.PacketProcessor.processQueuedPackets(PacketProcessor.java:38)
+	at net.minecraft.client.Minecraft.runTick(Minecraft.java:1238)
+	at net.minecraft.client.Minecraft.run(Minecraft.java:967)
+	at net.minecraft.client.main.Main.main(Main.java:292)
+
+-- Incoming Packet --
+Details:
+	Type: clientbound/minecraft:finish_configuration
+	Is Terminal: true
+	Is Skippable: false
+
+-- Connection --
+Details:
+	Protocol: configuration
+	Flow: CLIENTBOUND
+	Is Local: false
+	Server type: OTHER
+	Server brand: ~~NULL~~
+
+-- System Details --
+Details:
+	Minecraft Version: 26.3
+	Minecraft Version ID: 26.3
+	Operating System: Linux (amd64) version 7.0.0-34-generic
+	Java Version: 25.0.1, Microsoft
+	Java VM Version: OpenJDK 64-Bit Server VM (mixed mode), Microsoft
+	Memory: 328049872 bytes (312 MiB) / 738197504 bytes (704 MiB) up to 10301210624 bytes (9824 MiB)
+	Memory (heap): init: 512MiB, used: 363MiB, committed: 704MiB, max: 9824MiB
+	Memory (non-heap): init: 007MiB, used: 182MiB, committed: 185MiB, max: 000MiB
+	CPUs: 12
+	Processor Vendor: GenuineIntel
+	Processor Name: 13th Gen Intel(R) Core(TM) i5-13600KF
+	Identifier: Intel64 Family 6 Model 183 Stepping 1
+	Microarchitecture: Raptor Lake
+	Frequency (GHz): 5.10
+	Number of physical packages: 1
+	Number of physical CPUs: 14
+	Number of logical CPUs: 20
+	Graphics card #0 name: GA106 [GeForce RTX 3060 Lite Hash Rate]
+	Graphics card #0 vendor: NVIDIA Corporation (0x10de)
+	Graphics card #0 VRAM (MiB): 16416.00
+	Graphics card #0 deviceId: 0x2504
+	Graphics card #0 versionInfo: unknown
+	Virtual memory max (MiB): 17998.53
+	Virtual memory used (MiB): 8085.20
+	Swap memory total (MiB): 2048.00
+	Swap memory used (MiB): 66.40
+	Space in storage for jna.tmpdir (MiB): available: 377452.69, total: 467850.69
+	Space in storage for org.lwjgl.system.SharedLibraryExtractPath (MiB): available: 377452.69, total: 467850.69
+	Space in storage for io.netty.native.workdir (MiB): available: 377452.69, total: 467850.69
+	Space in storage for java.io.tmpdir (MiB): available: 377452.69, total: 467850.69
+	Space in storage for workdir (MiB): available: 377452.69, total: 467850.69
+	Operating System Version: GNU/Linux Linux Mint 22.3 (Zena) build 7.0.0-34-generic
+	Process Elevated: false
+	Process Loads: Uptime: 87s, user: 78s (89.54%), kernel: 2s (2.46%), total: 80s (92.00%)
+	Process Virtual Size (MiB): 17884.85
+	Process Resident Size (MiB): 1509.16
+	JVM Flags: 20 total; -Xmx9823m -XX:+UnlockExperimentalVMOptions -XX:+UnlockDiagnosticVMOptions -XX:+UseG1GC -XX:G1MixedGCCountTarget=5 -XX:G1NewSizePercent=20 -XX:G1ReservePercent=20 -XX:MaxGCPauseMillis=50 -XX:G1HeapRegionSize=32m -XX:-OmitStackTraceInFastThrow -XX:-DontCompileHugeMethods -XX:MaxNodeLimit=240000 -XX:NodeLimitFudgeFactor=8000 -XX:TieredCompileTaskTimeout=10000 -XX:ReservedCodeCacheSize=400M -XX:NonNMethodCodeHeapSize=12M -XX:ProfiledCodeHeapSize=194M -XX:NmethodSweepActivity=1 -XX:+UseCompactObjectHeaders -XX:StackShadowPages=32
+	Debug Flags: 0 total; 

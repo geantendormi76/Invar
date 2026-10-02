@@ -148,6 +148,7 @@ class ControlPlaneConfig:
     """Control Plane 强约束参数"""
     max_reason_length: int = 500
     max_llm_attempts: int = 1  # 有界，禁止无限 retry
+    max_decisions: int = 12    # 有限决策预算 (Decision Budget)
 
 
 # ==========================================================================

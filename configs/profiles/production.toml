@@ -1,7 +1,7 @@
 [track]
-name = "production"
+name = "PRODUCTION"
 
 [runtime]
-backend = "default"
-execution = "local"
-reproducible = true
+backend = "cuda"
+device = "cuda:0"
+precision = "fp16"

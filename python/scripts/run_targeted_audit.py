@@ -92,6 +92,11 @@ def parse_args() -> argparse.Namespace:
         help="激活 INVAR_LLM_BASE_URL 指向的本地模型进行结构化反思",
     )
     parser.add_argument(
+        "--control-plane",
+        action="store_true",
+        help="启用 System-2 严格受限的 Research Control Plane 决策层",
+    )
+    parser.add_argument(
         "--restart",
         action="store_true",
         help="放弃输出目录中的既有断点并从第 1 项重新开始",
@@ -336,7 +341,11 @@ def main() -> int:
 
     # 5. 配置沙箱执行器
     cfg = InvarConfig(request_timeout=args.timeout)
-    executor = AdaptiveSandboxExecutor(cfg=cfg, llm_provider=llm_provider)
+    executor = AdaptiveSandboxExecutor(
+        cfg=cfg,
+        llm_provider=llm_provider,
+        control_plane_enabled=args.control_plane,
+    )
 
     unsubscribe_trace = executor.research_agent.subscribe(
         trace_recorder.on_event

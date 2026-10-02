@@ -1,10 +1,30 @@
-﻿use std::path::PathBuf;
+use std::path::PathBuf;
 use invar_core::{
     ProcessAstExtractor, ProcessResearchExecutor, ResearchOrchestrator,
 };
 
+fn get_workspace_paths() -> (PathBuf, String) {
+    let manifest_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+    let workspace_root = manifest_dir
+        .parent()
+        .and_then(|p| p.parent())
+        .map(|p| p.to_path_buf())
+        .unwrap_or_else(|| PathBuf::from("."));
+    let pythonpath = workspace_root
+        .join("python")
+        .join("packages")
+        .join("core")
+        .join("src")
+        .to_string_lossy()
+        .to_string();
+    (workspace_root, pythonpath)
+}
+
 #[test]
 fn e2e_pipeline_extracts_ast_and_produces_audit_report() {
+    let (workspace_root, pythonpath) = get_workspace_paths();
+    let python_project = workspace_root.join("python").to_string_lossy().to_string();
+
     // 1. 模拟被测前端打包工程的真实 JS 代码片段
     let js_code = r#"
         fetch('/api/users', { method: 'GET' });
@@ -17,13 +37,13 @@ fn e2e_pipeline_extracts_ast_and_produces_audit_report() {
         vec![
             "run".to_string(),
             "--project".to_string(),
-            "C:\\dev\\Invar\\python".to_string(),
+            python_project.clone(),
             "python".to_string(),
             "-m".to_string(),
             "harness.ast_worker".to_string(),
         ],
-        Some(PathBuf::from("C:\\dev\\Invar")),
-        Some("C:\\dev\\Invar\\python\\packages\\core\\src".to_string()),
+        Some(workspace_root.clone()),
+        Some(pythonpath.clone()),
     );
 
     // 3. 驱动上游管道：提炼标准任务切片
@@ -38,13 +58,13 @@ fn e2e_pipeline_extracts_ast_and_produces_audit_report() {
         vec![
             "run".to_string(),
             "--project".to_string(),
-            "C:\\dev\\Invar\\python".to_string(),
+            python_project,
             "python".to_string(),
             "-m".to_string(),
             "harness.research_worker".to_string(),
         ],
-        Some(PathBuf::from("C:\\dev\\Invar")),
-        Some("C:\\dev\\Invar\\python\\packages\\core\\src".to_string()),
+        Some(workspace_root),
+        Some(pythonpath),
     );
 
     // 5. 驱动中枢调度与下游战报生成

@@ -2,13 +2,6 @@
 name = "Invar"
 profile = "production"
 
-[paths]
-data = "data"
-models = "models"
-runs = "runs"
-artifacts = "artifacts"
-
 [runtime]
-backend = "default"
-execution = "local"
-
+backend = "cuda"
+device = "cuda:0"

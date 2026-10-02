@@ -15,7 +15,13 @@ dependencies = [
     "pytest>=8.0.0",
     "tokenizers>=0.19.0",
     "numpy>=1.26.0,<2.0.0",
-    "onnxruntime-directml>=1.18.0",
+    "onnxruntime-directml>=1.18.0; sys_platform == 'win32'",
+    "onnxruntime-gpu>=1.20.0,<1.21.0; sys_platform == 'linux'",
+    "nvidia-cublas-cu12; sys_platform == 'linux'",
+    "nvidia-cudnn-cu12>=9.0.0; sys_platform == 'linux'",
+    "nvidia-cufft-cu12>=11.0.0; sys_platform == 'linux'",
+    "nvidia-curand-cu12>=10.0.0; sys_platform == 'linux'",
+    "nvidia-cuda-runtime-cu12; sys_platform == 'linux'",
 ]
 
 [tool.uv]

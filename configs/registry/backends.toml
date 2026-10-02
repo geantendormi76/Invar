@@ -1,8 +1,0 @@
-# Declarative backend registry.
-# The implementation identifier must map to a registered adapter in code.
-
-[backends.default]
-implementation = "placeholder"
-
-[backends.research]
-implementation = "placeholder"

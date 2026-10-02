@@ -36,29 +36,39 @@ artifacts/reports/targeted_audit_production/ (SARIF + OpenVEX + 战报)
 
 ## 阶段 0：换新靶场唯一入口（初始化）
 
-```powershell
-Set-Location -Path "C:\\dev\\Invar"
-
+```bash
 # 【全局唯一目标配置】更换测试资产只需修改此变量
-$target = "ikuai8.com"
+target="ikuai8.com"
 
-# 自动创建目标目录与工作空间
-$targetDir = "data\\targets\\$target"
-New-Item -ItemType Directory -Force -Path $targetDir, "tmp", "artifacts\\reports" | Out-Null
+# 目标专属工作目录
+target_dir="data/targets/${target}"
 
-# 建立法定授权白名单
-@"
-$target
-"@ | Set-Content -Path "$targetDir\\scope.txt" -Encoding UTF8
+# 1. 递归创建目标目录、临时空间与报告归档目录
+mkdir -p "${target_dir}" tmp artifacts/reports
+
+# 2. 写入法定授权范围 (Scope) 白名单
+cat << EOF > "${target_dir}/scope.txt"
+${target}
+EOF
+
+# 3. 打印验证
+echo "[✓] 阶段 0 初始化完成: 目标目录已就绪 -> ${target_dir}"
+ls -la "${target_dir}"
 ```
 
 ---
 
 ## 阶段 1：外部工具多源子域名全量被动发现 (Subfinder)
 
-```powershell
-$subdomainsTxt = "$targetDir\\subdomains.txt"
-subfinder -d $target -silent -o $subdomainsTxt
+```bash
+# 阶段 1：子域名被动采集
+subdomains_txt="data/targets/${target}/subdomains.txt"
+
+echo "[*] 正在执行 subfinder 被动发现，目标: ${target} ..."
+subfinder -d "${target}" -silent -o "${subdomains_txt}"
+
+echo "[✓] 阶段 1 完成。产物位置: ${subdomains_txt}"
+echo "    采集到子域名总数: $(wc -l < "${subdomains_txt}") 个"
 ```
 * **核心产物**：`data/targets/<target>/subdomains.txt`（纯净子域名清单）
 
@@ -66,18 +76,17 @@ subfinder -d $target -silent -o $subdomainsTxt
 
 ## 阶段 2：外部工具 Web 存活探测与边缘画像 (HTTPX)
 
-```powershell
-$httpxJsonl = "$targetDir\\httpx.jsonl"
-$liveHostsTxt = "$targetDir\\live_hosts.txt"
+Linux Mint 通常预装或 `udo apt install jq` :
 
-# 存活探测与指纹收集
-httpx -l $subdomainsTxt -silent -sc -title -tech-detect -web-server -json -o $httpxJsonl
+```bash
+# 1. 存活探测与边缘画像
+httpx -l "data/targets/${target}/subdomains.txt" -silent -sc -title -tech-detect -web-server -json -o "data/targets/${target}/httpx.jsonl"
 
-# 提取纯净存活 URL 清单供爬虫消费
-Get-Content $httpxJsonl | ForEach-Object {
-    $row = $_ | ConvertFrom-Json
-    if ($row.url) { $row.url }
-} | Sort-Object -Unique | Set-Content -Path $liveHostsTxt -Encoding UTF8
+# 2. Linux 原生极简提取与去重
+jq -r '.url // empty' "data/targets/${target}/httpx.jsonl" | sort -u > "data/targets/${target}/live_hosts.txt"
+
+# 3. 统计
+echo "[✓] 存活 Web 目标总数: $(wc -l < "data/targets/${target}/live_hosts.txt") 个"
 ```
 * **核心产物**：
   * `data/targets/<target>/httpx.jsonl`（技术栈与网络指纹底账）
@@ -87,33 +96,46 @@ Get-Content $httpxJsonl | ForEach-Object {
 
 ## 阶段 3：Katana 静态资产深度爬取与前端 JS 快速物理下载
 
-```powershell
-$katanaOutput = "data\\targets\\$target\\katana.jsonl"
-$urlsJsonl = "data\\targets\\$target\\urls.jsonl"
-$jsJsonl = "data\\targets\\$target\\javascript.jsonl"
-$rawJsDir = "tmp\\raw_js"
-$jsManifest = "tmp\\${target}_javascript_manifest.jsonl"
+```bash
+# 阶段 3 路径与变量定义
+katana_output="data/targets/${target}/katana.jsonl"
+urls_jsonl="data/targets/${target}/urls.jsonl"
+js_jsonl="data/targets/${target}/javascript.jsonl"
+raw_js_dir="tmp/raw_js"
+js_manifest="tmp/${target}_javascript_manifest.jsonl"
 
-# 3.1 Katana 深度爬取
-katana -list $liveHostsTxt -jc -d 2 -c 5 -silent -j -or -ob -o $katanaOutput
+mkdir -p "${raw_js_dir}"
+
+# 3.1 Katana 深度爬取存活主机
+echo "[*] 3.1 启动 katana 深度爬取..."
+katana -list "data/targets/${target}/live_hosts.txt" -jc -d 2 -c 5 -silent -j -or -ob -o "${katana_output}"
 
 # 3.2 归一化解构业务路由与 JS 资产表
-uv run --project python python python/scripts/normalize_katana.py `
-    --input $katanaOutput `
-    --urls-output $urlsJsonl `
-    --javascript-output $jsJsonl `
-    --target $target
+echo "[*] 3.2 归一化解构资产路由..."
+uv run --project python python python/scripts/normalize_katana.py \
+    --input "${katana_output}" \
+    --urls-output "${urls_jsonl}" \
+    --javascript-output "${js_jsonl}" \
+    --target "${target}"
 
-# 3.3 批量物理下载前端 JS 代码并做 SHA256 存证
-uv run --project python python python/scripts/download_javascript.py `
-    --input $jsJsonl `
-    --output-dir $rawJsDir `
-    --manifest $jsManifest `
-    --target $target `
-    --workers 8 `
-    --timeout 15 `
-    --insecure `
+# 3.3 批量物理下载前端 JS 代码并计算 SHA256 存证
+echo "[*] 3.3 批量并发下载前端 JS 代码..."
+uv run --project python python python/scripts/download_javascript.py \
+    --input "${js_jsonl}" \
+    --output-dir "${raw_js_dir}" \
+    --manifest "${js_manifest}" \
+    --target "${target}" \
+    --workers 8 \
+    --timeout 15 \
+    --insecure \
     --retry-failed-only
+
+# 3.4 输出统计结果
+echo "[✓] 阶段 3 完成。"
+echo "    爬取原始记录: $(wc -l < "${katana_output}") 条"
+echo "    解构 URL 总数: $(wc -l < "${urls_jsonl}") 条"
+echo "    待下 JS 总数: $(wc -l < "${js_jsonl}") 条"
+echo "    已落地 JS 文件数: $(find "${raw_js_dir}" -type f -name "*.js" | wc -l) 个"
 ```
 * **核心产物**：
   * `tmp/raw_js/<host>/*.js`（目标全离子前端代码库）
@@ -123,12 +145,23 @@ uv run --project python python python/scripts/download_javascript.py `
 
 ## 阶段 4：Tree-sitter AST 静态接口与契约提炼
 
-```powershell
-$endpointReport = "tmp\\${target}_endpoints_report.json"
+```bash
+# 阶段 4 路径定义
+endpoint_report="tmp/${target}_endpoints_report.json"
 
-uv run --project python python python/scripts/scan_pipeline.py `
-    "tmp\\raw_js" `
-    -o $endpointReport
+echo "[*] 启动 Tree-sitter AST 静态语法解析流水线..."
+uv run --project python python python/scripts/scan_pipeline.py \
+    "tmp/raw_js" \
+    -o "${endpoint_report}"
+
+# 打印提炼成果统计
+echo "[✓] 阶段 4 完成。"
+echo "    静态 API 契约报告已生成: ${endpoint_report}"
+if command -v jq >/dev/null 2>&1; then
+    echo "    提炼端点总数: $(jq '.endpoints | length' "${endpoint_report}") 个"
+    echo "    严重高危接口: $(jq '.summary.critical_risk_count' "${endpoint_report}") 个"
+    echo "    高风险接口:   $(jq '.summary.high_risk_count' "${endpoint_report}") 个"
+fi
 ```
 * **核心产物**：`tmp/<target>_endpoints_report.json`（剥离了路由、参数与破坏性标记的 API 契约）
 
@@ -136,14 +169,33 @@ uv run --project python python python/scripts/scan_pipeline.py `
 
 ## 阶段 5：System-1 神经认知反射初筛 (0.6B ONNX 原生推演)
 
-```powershell
-$predictionsOut = "tmp\\${target}_predictions.jsonl"
+```bash
+# 1. 确保加载 Base-Jev 验证通过的 CUDA 驱动链穿透环境
+source tools/env_cuda.sh
 
-uv run --project python python python/scripts/predict_triage_onnx.py `
-    --report $endpointReport `
-    --raw-js "tmp\\raw_js" `
-    --model-dir "models/invar-intent-0.6b-v1" `
-    --output $predictionsOut
+# 2. 阶段 5 变量与路径
+endpoint_report="tmp/${target}_endpoints_report.json"
+predictions_out="tmp/${target}_predictions.jsonl"
+raw_js_dir="tmp/raw_js"
+model_dir="models/invar-intent-0.6b-v2"
+
+echo "==========================================================================="
+echo " 🚀 启动 System-1 0.6B ONNX 神经认知推演 (RTX 3060 CUDA 全速点火)"
+echo " 📂 模型路径 : ${model_dir}"
+echo " 📄 端点报告 : ${endpoint_report}"
+echo " 🎯 预测输出 : ${predictions_out}"
+echo "==========================================================================="
+
+uv run --project python python python/scripts/predict_triage_onnx.py \
+    --report "${endpoint_report}" \
+    --raw-js "${raw_js_dir}" \
+    --model-dir "${model_dir}" \
+    --output "${predictions_out}"
+
+# 3. 统计推演成果
+echo "[✓] 阶段 5 完成！"
+echo "    生成预测条数: $(wc -l < "${predictions_out}")"
+echo "    原始端点总数: $(jq '.endpoints | length' "${endpoint_report}")"
 ```
 * **核心产物**：`tmp/<target>_predictions.jsonl`（全部端点的 Impact / Sensitivity 软标签）
 
@@ -151,15 +203,40 @@ uv run --project python python python/scripts/predict_triage_onnx.py `
 
 ## 阶段 6：终审双轨比对器（规则 ∪ 神经并集融合，零漏报）
 
-```powershell
-$outputDir = "artifacts\\reports"
+```bash
+# 阶段 6 路径与输入
+endpoint_report="tmp/${target}_endpoints_report.json"
+predictions_out="tmp/${target}_predictions.jsonl"
+raw_js_dir="tmp/raw_js"
+http_surface="${target_dir}/httpx.jsonl"
+output_dir="artifacts/reports"
 
-uv run --project python python python/scripts/triage_dual_track_comparator.py `
-    --report $endpointReport `
-    --raw-js "tmp\\raw_js" `
-    --neural-jsonl $predictionsOut `
-    --http-surface "$targetDir\\httpx.jsonl" `
-    --output-dir $outputDir
+mkdir -p "${output_dir}"
+
+echo "==========================================================================="
+echo " ⚖️ 启动 Invar 终审双轨比对器 (规则 ∪ 神经并集融合)"
+echo " 📄 静态报告 : ${endpoint_report}"
+echo " 🧠 神经物证 : ${predictions_out}"
+echo " 🌐 边缘画像 : ${http_surface}"
+echo " 🎯 战报输出 : ${output_dir}"
+echo "==========================================================================="
+
+uv run --project python python python/scripts/triage_dual_track_comparator.py \
+    --report "${endpoint_report}" \
+    --raw-js "${raw_js_dir}" \
+    --neural-jsonl "${predictions_out}" \
+    --http-surface "${http_surface}" \
+    --output-dir "${output_dir}"
+
+# 验证融合产物
+echo -e "\n[✓] 阶段 6 完成！"
+echo "    融合底账: ${output_dir}/triage_dual_track_v2.jsonl"
+echo "    分流靶标池: ${output_dir}/triage_pools_v2.json"
+if command -v jq >/dev/null 2>&1; then
+    echo "    • Pool A (规则必保面): $(jq '.pool_a_rule_must_keep | length' "${output_dir}/triage_pools_v2.json") 个 Surface"
+    echo "    • Pool B (神经破盲面): $(jq '.pool_b_discrepancy | length' "${output_dir}/triage_pools_v2.json") 个 Surface"
+    echo "    • Pool C (参数探索面): $(jq '.pool_c_exploration | length' "${output_dir}/triage_pools_v2.json") 个 Surface"
+fi
 ```
 * **核心产物**：
   * `artifacts/reports/triage_pools_v2.json`（Pool A 规则保底池与 Pool B 神经破盲池）
@@ -169,14 +246,25 @@ uv run --project python python python/scripts/triage_dual_track_comparator.py `
 
 ## 阶段 7：System-2 靶心任务装配与优先级调度 (Dispatch)
 
-```powershell
-$tasksFile = "artifacts\\reports\\targeted_research_tasks.json"
+```bash
+pools_json="artifacts/reports/triage_pools_v2.json"
+dual_track_jsonl="artifacts/reports/triage_dual_track_v2.jsonl"
+tasks_output="artifacts/reports/targeted_research_tasks.json"
 
-uv run --project python python python/scripts/assemble_triage_tasks.py `
-    --pools "artifacts/reports/triage_pools_v2.json" `
-    --dual-track "artifacts/reports/triage_dual_track_v2.jsonl" `
-    --output $tasksFile `
+uv run --project python python python/scripts/assemble_triage_tasks.py \
+    --pools "${pools_json}" \
+    --dual-track "${dual_track_jsonl}" \
+    --output "${tasks_output}" \
     --target-pools pool_a_rule_must_keep pool_b_discrepancy
+
+# 输出装配战报统计
+echo -e "\n[✓] 阶段 7 完成！"
+echo "    高浓度研究种子库已生成: ${tasks_output}"
+if command -v jq >/dev/null 2>&1; then
+    echo "    • 装配任务总数: $(jq '.total_tasks' "${tasks_output}") 个"
+    echo "    • 优先级分布  : $(jq -c '.priority_breakdown' "${tasks_output}")"
+    echo "    • 假说分布    : $(jq -c '.hypothesis_breakdown' "${tasks_output}")"
+fi
 ```
 * **核心产物**：`artifacts/reports/targeted_research_tasks.json`（已分配 P0/P1/P2/P3 优先级）
 
@@ -186,7 +274,7 @@ uv run --project python python python/scripts/assemble_triage_tasks.py `
 
 ## 阶段 8：System-2 自适应沙箱受控动态实证
 
-```powershell
+```bash
 Set-Location -Path "C:\\dev\\Invar"
 
 # 本地 LLM 反思服务配置
@@ -211,4 +299,8 @@ uv run --project python python python/scripts/run_targeted_audit.py `
   5. `REPORT.md`：[高管战报] 资产血统、加权覆盖率、发现总览；
   6. `FINDINGS-DETAIL.md`：[实锤细节] 包含攻击链路代码调用链、发包 Proof 的深度战报；
   7. `NEEDS-VALIDATION.md`：[攻坚清单] 存疑待人工介入清单；
-  8. `coverage-summary.md`：[覆盖账本] 路径审查全景责任矩阵。
+  8. `coverage-summary.md`：[覆盖账本] 路径审查全景责任矩阵。	90% (契约已测，等待点火)
+5. Invar Deterministic Core	9 大变换族变异 (F1~F3) + 双主体 IDOR 差分 + 不变量系统	Claude-Red (BOLA/IDOR SOP)	95% (算子与 CUDA 已打通)
+6. Observation / Semantic Eval	SemanticEquivalenceEvaluator (三值逻辑防误报、识破假 200)	Anthropic Harness (语义等价性检验)	90% (单测全绿，等待实战)
+7. Evidence & Verification	Layer 0~6 证据链 + 同态重放 + IndependentVerifier + PromotionGate	顶级科研标准 (无偏独立复核)	90% (门禁完备)
+8. Finding / PoC Package	KnowledgeCard + OpenVEX v0.2.0 + OASIS SARIF 2.1.0 导出	OpenSSF 工业合规标准	90% (投影器已

@@ -23,7 +23,12 @@ from harness.transport import HttpTransport
 
 
 
-def _resolve_default_agent(transport, llm_provider):
+def _resolve_default_agent(
+    transport,
+    llm_provider,
+    control_plane_enabled=False,
+    control_plane_config=None,
+):
     """
     动态解析默认认知智能体 (用于开箱即用的自适应研究闭环)
     严格通过 sys.modules / 动态引用获取，彻底消除 harness 顶层反向导入坏味道
@@ -37,7 +42,12 @@ def _resolve_default_agent(transport, llm_provider):
             agent_mod = importlib.import_module("agent.research_agent")
             agent_cls = getattr(agent_mod, "ResearchAgent", None)
         if agent_cls:
-            return agent_cls(transport=transport, llm_provider=llm_provider)
+            return agent_cls(
+                transport=transport,
+                llm_provider=llm_provider,
+                control_plane_enabled=control_plane_enabled,
+                control_plane_config=control_plane_config,
+            )
     except Exception:
         pass
     return None
@@ -74,6 +84,8 @@ class AdaptiveSandboxExecutor:
         mutation_policy: Optional[MutationPolicy] = None,
         research_agent: Optional[Any] = None,
         llm_provider: Optional[Any] = None,
+        control_plane_enabled: bool = False,
+        control_plane_config: Optional[Any] = None,
     ) -> None:
         self.cfg = cfg or InvarConfig()
         self.transport = transport or HttpTransport()
@@ -82,7 +94,14 @@ class AdaptiveSandboxExecutor:
         )
         self.mutation_policy = mutation_policy or MutationPolicy()
         self.llm_provider = llm_provider
-        self.research_agent = research_agent or _resolve_default_agent(self.transport, self.llm_provider)
+        self.control_plane_enabled = control_plane_enabled
+        self.control_plane_config = control_plane_config
+        self.research_agent = research_agent or _resolve_default_agent(
+            self.transport,
+            self.llm_provider,
+            control_plane_enabled=self.control_plane_enabled,
+            control_plane_config=self.control_plane_config,
+        )
 
     def _build_initial_payload(self, endpoint: EndpointIR) -> Dict[str, object]:
         payload: Dict[str, object] = {}

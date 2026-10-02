@@ -310,3 +310,101 @@ class ResearchAgentControlPlaneWiringTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class ControlPlaneLifecycleTests(unittest.TestCase):
+    """
+    针对控制面有限生命周期与决策预算的契约测试 (OI-02 & OI-03)
+    """
+    def test_controller_stop_in_phase1_prevents_phase2_duplicate_decision(self):
+        """【契约 1】控制器在 Phase 1 显式返回 STOP 时，循环立即收敛，Phase 2 严禁越权再次调用控制器"""
+        from agent.research_controller import ControlPlaneDecision, ResearchAction
+        class SingleStopController(ResearchController):
+            def __init__(self):
+                super().__init__()
+                self.calls = 0
+            def decide(self, candidates, state, llm_provider=None, emit=None):
+                self.calls += 1
+                return ControlPlaneDecision(
+                    action=ResearchAction.STOP,
+                    target_id=None,
+                    reason="explicit-stop",
+                    confidence=1.0,
+                )
+
+        ctrl = SingleStopController()
+        endpoint = EndpointIR(method="GET", path="/api/v1/admin/secrets")
+        context = ResearchLoopContext(
+            endpoint=endpoint,
+            target_url="https://target.corp.local/api/v1/admin/secrets",
+            baseline_observation=DenialObservation(status_code=403),
+            denial_classification=DenialClassificationResult(
+                primary_hypothesis=DenialHypothesis(
+                    hypothesis_id="DH-403",
+                    layer=DenialLayer.AUTHORIZATION,
+                    category=DenialCategory.ACCESS_POLICY_DENIAL,
+                    confidence=0.9,
+                    evidence_grade=EvidenceGrade.GRADE_A,
+                )
+            ),
+        )
+        cfg = ResearchLoopConfig(
+            max_turns=6,
+            control_plane_enabled=True,
+            controller=ctrl,
+        )
+        res = run_research_loop(context=context, config=cfg, transport=_FakeTransport())
+        self.assertFalse(res.breakthrough_achieved)
+        # 核心断言：决策调用仅有 1 次，Phase 2 绝不触发第 2 次重复决策
+        self.assertEqual(ctrl.calls, 1)
+
+    def test_control_plane_decision_budget_enforces_upper_bound(self):
+        """【契约 2】配置 max_decisions 决策预算时，即使剩余轮次充足，决策达到上限后必须安全收敛"""
+        from agent.research_controller import ControlPlaneDecision, ResearchAction
+        class EndlessRunController(ResearchController):
+            def __init__(self):
+                super().__init__()
+                self.calls = 0
+            def decide(self, candidates, state, llm_provider=None, emit=None):
+                self.calls += 1
+                return ControlPlaneDecision(
+                    action=ResearchAction.RUN_EXPERIMENT,
+                    target_id=candidates[0].variant_id,
+                    reason="keep-trying",
+                    confidence=0.5,
+                )
+
+        ctrl = EndlessRunController()
+        endpoint = EndpointIR(method="GET", path="/api/v1/admin/secrets")
+        context = ResearchLoopContext(
+            endpoint=endpoint,
+            target_url="https://target.corp.local/api/v1/admin/secrets",
+            baseline_observation=DenialObservation(status_code=403),
+            denial_classification=DenialClassificationResult(
+                primary_hypothesis=DenialHypothesis(
+                    hypothesis_id="DH-403",
+                    layer=DenialLayer.AUTHORIZATION,
+                    category=DenialCategory.ACCESS_POLICY_DENIAL,
+                    confidence=0.9,
+                    evidence_grade=EvidenceGrade.GRADE_A,
+                )
+            ),
+        )
+        # 允许 10 轮 turn，但决策预算严格限制为 2 次
+        cp_cfg = ControlPlaneConfig(max_decisions=2)
+        cfg = ResearchLoopConfig(
+            max_turns=10,
+            control_plane_enabled=True,
+            controller=ctrl,
+            control_plane_config=cp_cfg,
+        )
+        res = run_research_loop(context=context, config=cfg, transport=_FakeTransport())
+        # 核心断言：严格在第 2 次决策后触发预算熔断收敛
+        self.assertEqual(ctrl.calls, 2)
+
+    def test_sandbox_executor_wires_control_plane_flag(self):
+        """【契约 3】验证 AdaptiveSandboxExecutor 能够正确将 control_plane_enabled 注入 ResearchAgent"""
+        from harness.sandbox_executor import AdaptiveSandboxExecutor
+        executor = AdaptiveSandboxExecutor(control_plane_enabled=True)
+        self.assertIsNotNone(executor.research_agent)
+        self.assertTrue(executor.research_agent.config.control_plane_enabled)

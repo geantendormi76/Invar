@@ -153,6 +153,8 @@ def main() -> int:
     sess_options.graph_optimization_level = ort.GraphOptimizationLevel.ORT_ENABLE_ALL
     available_providers = ort.get_available_providers()
     providers = []
+    if "CUDAExecutionProvider" in available_providers:
+        providers.append("CUDAExecutionProvider")
     if "DmlExecutionProvider" in available_providers:
         providers.append("DmlExecutionProvider")
     providers.append("CPUExecutionProvider")
