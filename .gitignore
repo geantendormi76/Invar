@@ -77,3 +77,5 @@ repomix-output*.xml
 *_report.md
 *.tmp
 *.bak
+
+.minecraft
