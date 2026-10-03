@@ -5,7 +5,9 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 from harness.coverage_ledger import CoverageLedger, CoverageStatus
+from harness.domain_contracts import BountySubmissionPackage
 from harness.finding_models import FindingRecord, FindingSchemaValidator, Severity, Verdict
+from harness.models import EndpointIR
 from harness.run_models import ResearchRun, RunStatus
 
 
@@ -165,7 +167,7 @@ class ReportProjector:
             "",
             "## 1. 运行环境与审计范围血统",
             f"- **目标根域**: `{self.run.scope.target_domain}`",
-            f"- **源码提交 (Commit)**: `{self.run.source_ref.commit or 'N/A'}` (工作区脏状态: `{self.run.source_ref.worktree_dirty}`)",
+            f"- **源码提交 (Commit)**: `{self.run.source_ref.commit or 'N/A'}` (工作区脏状态: `{self.run.source_ref.worktree_dirty}`" + (f", 工作区补丁指纹: `{getattr(self.run.source_ref, 'diff_hash', 'N/A')}`)" if self.run.source_ref.worktree_dirty and getattr(self.run.source_ref, 'diff_hash', None) else ")"),
             f"- **输入源码指纹 (SHA256)**: `{self.run.source_ref.raw_input_hash or 'N/A'}`",
             f"- **执行安全轮廓**: `{self.run.profile.name}` (动态测试授权: `{self.run.execution_policy.allow_dynamic_testing}`)",
         ]
@@ -255,10 +257,21 @@ class ReportProjector:
                     f"- **响应摘要**: `{f.execution.response_summary}`",
                 ])
 
+            remedy_sec_num = "4"
+            if f.poc_code:
+                remedy_sec_num = "5"
+                lines.extend([
+                    "",
+                    "### 4. 独立漏洞复现 PoC (Reproducible PoC)",
+                    "```bash",
+                    f.poc_code,
+                    "```",
+                ])
+
             if f.remediation:
                 lines.extend([
                     "",
-                    "### 4. 架构修复与治理建议",
+                    f"### {remedy_sec_num}. 架构修复与治理建议",
                     f"- **修复概括**: {f.remediation.summary}",
                     f"- **治理实操**: {f.remediation.guidance}",
                 ])
@@ -307,11 +320,57 @@ class ReportProjector:
             "| :--- | :--- | :--- | :--- | :--- | :--- | :--- |",
         ]
         for u in self.ledger.units.values():
-            paths_str = "<br>".join(u.starting_paths) if u.starting_paths else "N/A"
+            effective_paths = u.reviewed_paths if u.reviewed_paths else u.starting_paths
+            paths_str = "<br>".join(effective_paths) if effective_paths else "N/A"
             owner = u.owner_agent_id or "-"
             unres_str = "; ".join(f.description for f in u.unresolved) if u.unresolved else "-"
             lines.append(f"| `{u.coverage_id}` | `{u.subsystem}` | `{u.attack_class}` | `{u.status.value}` | {paths_str} | `{owner}` | {unres_str} |")
         return "\n".join(lines)
+
+    def render_bounty_submission_md(self) -> str:
+        """
+        投影 7: 法定 Bug Bounty / SRC 平台直接提交报告 BOUNTY-SUBMISSION.md
+        对标 HackerOne / Bugcrowd 顶级赏金报告标准
+        """
+        confirmed = [f for f in self.findings if f.verdict == Verdict.CONFIRMED]
+        if not confirmed:
+            lines = [
+                f"# Bug Bounty Submission Dossier: {self.run.target_root}",
+                "",
+                "## Summary",
+                "No promotable vulnerabilities were confirmed in the current execution run.",
+                f"- **Target Root**: `{self.run.target_root}`",
+                f"- **Run ID**: `{self.run.run_id}`",
+                f"- **Coverage Percentage**: `{self.ledger.compute_metrics().get('percentage', 0.0)}%`",
+                "",
+                "_Zero false-positive policy enforced: Unverified candidates are excluded from bounty submission._",
+            ]
+            return "\n".join(lines)
+
+        dossier_sections = [
+            f"# Bug Bounty Submission Dossier: {self.run.target_root}",
+            f"> Authorized Engagement Run: `{self.run.run_id}` | Confirmed Findings: `{len(confirmed)}`",
+            "",
+            "---",
+        ]
+
+        for idx, f in enumerate(confirmed, 1):
+            ep_str = f.endpoint_refs[0] if f.endpoint_refs else f"{self.run.target_root}/api"
+            parts = ep_str.split(":", 1)
+            method = parts[0] if len(parts) == 2 else "GET"
+            path = parts[1] if len(parts) == 2 else ep_str
+            dummy_ep = EndpointIR(method=method, path=path, endpoint_id=ep_str)
+
+            pkg = BountySubmissionPackage.compose_from_finding(
+                finding=f,
+                endpoint=dummy_ep,
+                target_scope=self.run.scope.target_domain,
+            )
+            dossier_sections.append(f"## Finding #{idx}: {f.title}\n")
+            dossier_sections.append(pkg.render_markdown())
+            dossier_sections.append("\n---\n")
+
+        return "\n".join(dossier_sections)
 
     def project_all(self, output_dir: Path | str) -> Dict[str, Path]:
         """
@@ -326,6 +385,7 @@ class ReportProjector:
             "findings_detail_md": out / "FINDINGS-DETAIL.md",
             "needs_validation_md": out / "NEEDS-VALIDATION.md",
             "coverage_summary_md": out / "coverage-summary.md",
+            "bounty_submission_md": out / "BOUNTY-SUBMISSION.md",
         }
         files["findings_json"].write_text(self.render_findings_json(), encoding="utf-8")
         files["sarif_json"].write_text(self.render_sarif_json(), encoding="utf-8")
@@ -333,4 +393,5 @@ class ReportProjector:
         files["findings_detail_md"].write_text(self.render_findings_detail_md(), encoding="utf-8")
         files["needs_validation_md"].write_text(self.render_needs_validation_md(), encoding="utf-8")
         files["coverage_summary_md"].write_text(self.render_coverage_summary_md(), encoding="utf-8")
+        files["bounty_submission_md"].write_text(self.render_bounty_submission_md(), encoding="utf-8")
         return files

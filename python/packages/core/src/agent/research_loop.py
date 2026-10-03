@@ -1,6 +1,7 @@
 from __future__ import annotations
 from dataclasses import dataclass, field
 import hashlib
+import json
 from typing import Any, Callable, Dict, List, Optional, Set, Tuple
 from urllib.parse import urlparse
 
@@ -81,6 +82,7 @@ class ResearchLoopContext:
     denial_classification: DenialClassificationResult
     messages: List[ResearchMessage] = field(default_factory=list)
     tried_variants: Set[str] = field(default_factory=set)
+    turn_history: List[Dict[str, Any]] = field(default_factory=list)
     evidence_chain: Optional[EvidenceChain] = None
     metadata: Dict[str, Any] = field(default_factory=dict)
 
@@ -98,6 +100,22 @@ class ResearchLoopResult:
     breakthrough_achieved: bool
     aborted: bool
     abort_reason: Optional[str] = None
+
+
+
+def format_poc_curl(variant: TransformationVariant) -> str:
+    """
+    将突破变异体原子化组装为可独立执行的标准 cURL 复现脚本 (PoC Command)
+    """
+    method = variant.method.upper()
+    parts = [f"curl -s -i -X {method} '{variant.url}'"]
+    for k, v in sorted(variant.headers.items()):
+        parts.append(f"-H '{k}: {v}'")
+    if variant.payload:
+        data_str = json.dumps(variant.payload, ensure_ascii=False)
+        parts.append(f"--data '{data_str}'")
+    return " \
+  ".join(parts)
 
 
 def run_research_loop(
@@ -217,6 +235,16 @@ def run_research_loop(
             body_preview=resp_var.text,
             redirect_url=resp_var.headers.get("Location") or resp_var.headers.get("location"),
         )
+        context.turn_history.append({
+            "turn": turn_index,
+            "method": variant.method,
+            "url": variant.url,
+            "status_code": resp_var.status_code,
+            "variant_id": variant.variant_id,
+            "family": variant.family.value,
+            "response_preview": resp_var.text[:200],
+            "rationale": variant.rationale,
+        })
 
         if variant.url.rstrip("/") == root_url.rstrip("/") and public_root_preview is None:
             try:
@@ -329,6 +357,7 @@ def run_research_loop(
                 ),
                 verdict=EvidenceVerdict.CANDIDATE,
                 verdict_rationale=sem_result.rationale,
+                poc_code=format_poc_curl(variant),
             )
             context.evidence_chain = evidence_chain
             context.messages.append(ResearchMessage(
@@ -442,7 +471,7 @@ def run_research_loop(
                         "content": (
                             "You are an API contract verification analyst. Analyze why the endpoint was blocked "
                             "and propose a specialized variant. Always return pure JSON with keys: "
-                            "'rationale' (str), 'headers' (dict), 'payload' (dict)."
+                            "'rationale' (str), 'method' (str, HTTP method such as GET/POST/PUT/DELETE/PATCH), 'headers' (dict), 'payload' (dict)."
                         ),
                     },
                     {
@@ -462,6 +491,8 @@ def run_research_loop(
                 inferred_headers = llm_res.get("headers") or {}
                 inferred_payload = llm_res.get("payload") or {}
                 llm_rationale = llm_res.get("rationale")
+                raw_inferred_method = llm_res.get("method")
+                inferred_method = str(raw_inferred_method).upper() if raw_inferred_method else context.endpoint.method.upper()
                 if not isinstance(llm_rationale, str):
                     raise ValueError("LLM action rationale must be a string")
                 if not isinstance(inferred_headers, dict):
@@ -469,18 +500,24 @@ def run_research_loop(
                 if not isinstance(inferred_payload, dict):
                     raise ValueError("LLM action payload must be an object")
                 context.metadata["llm_terminal_status"] = "completed"
-                print(f"    [+] 🧠 大模型反思完成！建议理据: {llm_rationale!r}")
+                print(f"    [+] 🧠 大模型反思完成！建议动词: {inferred_method}, 建议理据: {llm_rationale!r}")
 
                 _emit(ResearchEventType.LLM_REASONING_COMPLETED, {
                     "inferred_headers": list(inferred_headers.keys()),
+                    "inferred_method": inferred_method,
                     "rationale": llm_rationale,
                 })
 
                 # 构建大模型专属变异体并执行一次终审探测
+                family = (
+                    TransformationFamily.F2_METHOD_SEMANTICS
+                    if inferred_method != context.endpoint.method.upper()
+                    else TransformationFamily.F6_QUERY_BODY_PARSER
+                )
                 llm_variant = TransformationVariant(
                     variant_id="F6_LLM_COT_REASONED",
-                    family=TransformationFamily.F6_QUERY_BODY_PARSER,
-                    method=context.endpoint.method,
+                    family=family,
+                    method=inferred_method,
                     url=context.target_url,
                     headers=inferred_headers,
                     payload=inferred_payload,
@@ -500,6 +537,17 @@ def run_research_loop(
                     response_headers=dict(resp_llm.headers),
                     body_preview=resp_llm.text,
                 )
+                # 严格物证登记：将大模型建议的物理变异发包记录完整沉淀入 turn_history
+                context.turn_history.append({
+                    "turn": turn_index,
+                    "method": llm_variant.method,
+                    "url": llm_variant.url,
+                    "status_code": resp_llm.status_code,
+                    "variant_id": llm_variant.variant_id,
+                    "family": llm_variant.family.value,
+                    "response_preview": resp_llm.text[:200],
+                    "rationale": f"[LLM-COT] {llm_rationale}",
+                })
                 sem_llm = SemanticEquivalenceEvaluator.evaluate(
                     baseline=context.baseline_observation,
                     candidate=cand_llm_obs,
@@ -531,6 +579,7 @@ def run_research_loop(
                         ),
                         verdict=EvidenceVerdict.CANDIDATE,
                         verdict_rationale=sem_llm.rationale,
+                        poc_code=format_poc_curl(llm_variant),
                     )
                     context.evidence_chain = evidence_chain
             except Exception as e:

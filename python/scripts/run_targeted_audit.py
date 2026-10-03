@@ -123,14 +123,36 @@ def file_sha256(path: Path) -> Optional[str]:
     return digest.hexdigest()
 
 
-def make_executing_run(run_id: str) -> ResearchRun:
-    # Existing System-2 targeted audit is explicitly a Research track.
-    from harness.run_models import RunTrack
+def get_git_info() -> tuple[Optional[str], bool, Optional[str]]:
+    import subprocess
+    try:
+        commit = subprocess.check_output(["git", "rev-parse", "HEAD"], stderr=subprocess.DEVNULL).decode().strip()
+        status_out = subprocess.check_output(["git", "status", "--porcelain"], stderr=subprocess.DEVNULL).decode().strip()
+        is_dirty = bool(status_out)
+        diff_hash = None
+        if is_dirty:
+            diff_bytes = subprocess.check_output(["git", "diff", "HEAD"], stderr=subprocess.DEVNULL)
+            diff_hash = hashlib.sha256(diff_bytes).hexdigest()
+        return commit, is_dirty, diff_hash
+    except Exception:
+        return None, False, None
+
+def make_executing_run(run_id: str, report_hash: Optional[str] = None) -> ResearchRun:
+    from harness.run_models import RunTrack, SourceRef
+    commit, dirty, diff_hash = get_git_info()
+    source_ref = SourceRef(
+        vcs="git",
+        commit=commit,
+        worktree_dirty=dirty,
+        raw_input_hash=report_hash,
+        diff_hash=diff_hash,
+    )
     run = ResearchRun(
         track=RunTrack.RESEARCH,
         run_id=run_id,
         target_root="ikuai8.com",
         scope=ResearchScope(target_domain="ikuai8.com"),
+        source_ref=source_ref,
         profile=RunProfile(name="targeted_combat_audit"),
         execution_policy=ExecutionPolicy(allow_dynamic_testing=True),
         status=RunStatus.INIT,
@@ -287,7 +309,7 @@ def main() -> int:
             )
             if progress is None:
                 raise CheckpointError("无法从非空 execution.jsonl 恢复执行进度")
-            run = make_executing_run(progress.run_id)
+            run = make_executing_run(progress.run_id, report_hash=file_sha256(args.report_input.resolve()))
             ledger = CoverageLedger(run_id=run.run_id)
             ledger.units.update(progress.coverage_units)
             findings = list(progress.findings)
@@ -303,7 +325,7 @@ def main() -> int:
             checkpoint.save_atomic(checkpoint_path)
         else:
             run_id = f"RUN-TARGETED-{time.time_ns()}"
-            run = make_executing_run(run_id)
+            run = make_executing_run(run_id, report_hash=file_sha256(args.report_input.resolve()))
             ledger = CoverageLedger(run_id=run_id)
             findings: List[FindingRecord] = []
             checkpoint = AuditCheckpoint(
@@ -430,8 +452,15 @@ def main() -> int:
             unsubscribe_trace()
             trace_recorder.close()
             raise
-        status_desc = decision.status if decision else "inconclusive"
-        print(f"    └─ 决策: [{status_desc.upper()}] (耗时: {elapsed_ms:.1f}ms, 尝试: {len(case.attempts)} 次)")
+        status_raw = decision.status if decision else "inconclusive"
+        # 语义去歧义：消除“安全守住”与“漏洞确权”同名 CONFIRMED 混淆
+        if status_raw == "confirmed":
+            semantic_label = "DEFENSE_HELD: 安全守住"
+        elif status_raw == "vulnerable":
+            semantic_label = "VULNERABLE: 漏洞确权"
+        else:
+            semantic_label = "INCONCLUSIVE: 证据未决"
+        print(f"    └─ 审计决策: [{semantic_label}] (耗时: {elapsed_ms:.1f}ms, 尝试: {len(case.attempts)} 次)")
 
         # 漏洞确权分支
         task_finding: Optional[FindingRecord] = None
@@ -472,13 +501,23 @@ def main() -> int:
                 evidence_refs=[exec_res.evidence.notes[:30]] if exec_res.evidence else ["evidence-probe"],
                 trace=trace,
             )
+            # 提取 PoC 代码 (优先从 evidence_chain 提取，若无则根据微观发包物理事实即时组装)
+            chain_meta = case.metadata.get("evidence_chain") or {}
+            applied_meta = chain_meta.get("applied_variant") or {}
+            effective_method = (applied_meta.get("method") or method).upper()
+            effective_url = applied_meta.get("url") or executor._build_url(endpoint, base_url=args.base_url)
+            poc_code = chain_meta.get("poc_code")
+
             last_attempt = case.attempts[-1] if case.attempts else None
             exec_record = ExecutionRecord(
                 status_code=last_attempt.status_code if last_attempt else 200,
-                method=method,
-                url=executor._build_url(endpoint, base_url=args.base_url),
+                method=effective_method,
+                url=effective_url,
                 response_summary=last_attempt.response_preview[:200] if last_attempt else "",
             )
+            if not poc_code:
+                poc_code = f"curl -s -i -X {effective_method} '{effective_url}'"
+
             finding = FindingRecord.from_candidate(
                 candidate=cand,
                 run_id=run_id,
@@ -490,6 +529,7 @@ def main() -> int:
                     summary="建议加强权限拦截与参数校验",
                     guidance="在中间件中严格校验主体权限与业务参数合法性",
                 ),
+                poc_code=poc_code,
             )
             findings.append(finding)
             task_finding = finding
@@ -497,6 +537,13 @@ def main() -> int:
                 unit.candidate_fingerprints.append(fp.value)
                 unit.transition_to(CoverageStatus.CANDIDATE)
         else:
+            # 无论单元此前是否已被置为 COVERED，当前任务的审查路径均必须幂等累加
+            if path not in unit.reviewed_paths:
+                unit.reviewed_paths.append(path)
+            chk_ref = f"CHK-{attack_class.upper()}"
+            if chk_ref not in unit.check_refs:
+                unit.check_refs.append(chk_ref)
+
             if unit.status == CoverageStatus.IN_PROGRESS:
                 if case.metadata.get("llm_terminal_status") == "failed":
                     unresolved_description = (
@@ -521,8 +568,6 @@ def main() -> int:
                     )
                     unit.transition_to(CoverageStatus.BLOCKED)
                 else:
-                    unit.reviewed_paths.append(path)
-                    unit.check_refs.append(f"CHK-{attack_class.upper()}")
                     unit.transition_to(CoverageStatus.COVERED)
 
 

@@ -88,15 +88,25 @@ class InvariantEvaluatorTests(unittest.TestCase):
             statement="Sensitive administration routes must enforce authentication",
         )
 
-        evaluation = InvariantEvaluator.evaluate(
+        # 1. 验证 401 精确单射理据
+        eval_401 = InvariantEvaluator.evaluate(
             invariant=invariant,
             endpoint=endpoint,
             status_code=401,
             payload={},
         )
+        self.assertEqual(eval_401.status, "confirmed")
+        self.assertIn("HTTP 401 [authentication_required]", eval_401.rationale)
 
-        self.assertEqual(evaluation.status, "confirmed")
-        self.assertIn("返回了严格的未授权拒绝响应", evaluation.rationale)
+        # 2. 验证 403 精确单射理据
+        eval_403 = InvariantEvaluator.evaluate(
+            invariant=invariant,
+            endpoint=endpoint,
+            status_code=403,
+            payload={},
+        )
+        self.assertEqual(eval_403.status, "confirmed")
+        self.assertIn("HTTP 403 [access_policy_denial]", eval_403.rationale)
 
     def test_evaluator_synthesizes_research_decision_for_case(self) -> None:
         from harness.invariant_evaluator import InvariantEvaluator

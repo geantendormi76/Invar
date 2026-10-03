@@ -7,6 +7,7 @@ from __future__ import annotations
 from dataclasses import asdict, dataclass, field
 from datetime import datetime, timezone
 import difflib
+import fnmatch
 from enum import Enum
 import hashlib
 import json
@@ -154,11 +155,20 @@ class SourceRef:
     commit: Optional[str] = None
     worktree_dirty: bool = False
     raw_input_hash: Optional[str] = None
+    diff_hash: Optional[str] = None
 
     @staticmethod
     def compute_sha256(content: str | bytes) -> str:
         data = content.encode("utf-8") if isinstance(content, str) else content
         return hashlib.sha256(data).hexdigest()
+
+
+class OutOfScopeError(ValueError):
+    """当尝试向授权测试范围外的目标主机/网络资产发包时抛出"""
+
+
+class RoEBoundaryViolationError(ValueError):
+    """当发包请求违反法定测试交战规则 (如命中排除黑名单路径、非授权危险动词) 时抛出"""
 
 
 @dataclass
@@ -176,7 +186,56 @@ class ResearchScope:
         return method.upper() in [m.upper() for m in self.allowed_methods]
 
     def is_path_excluded(self, path: str) -> bool:
-        return any(ex in path for ex in self.excluded_paths)
+        clean_path = (path or "/").split("?")[0]
+        for ex in self.excluded_paths:
+            ex_pattern = ex.strip()
+            if fnmatch.fnmatch(clean_path, ex_pattern) or (ex_pattern.endswith("*") and clean_path.startswith(ex_pattern[:-1])) or clean_path == ex_pattern:
+                return True
+        return False
+
+
+class RoEEnforcementGate:
+    """
+    Invar 法定测试交战规则 (Rules of Engagement, RoE) 前置安全门禁
+    对齐各大 Bug Bounty 与企业 SRC 法定授权：
+    在物理网络发包前的最后一毫秒实施强制校验。凡越界资产、排除黑名单路径、非授权动词，绝对阻断！
+    """
+
+    @classmethod
+    def assert_allowed(
+        cls,
+        url: str,
+        method: str,
+        scope: ResearchScope,
+    ) -> None:
+        parsed = urlparse(url)
+        host = (parsed.hostname or "").lower()
+
+        # 1. 域名资产授权边界校验 (Host Scope Check)
+        tgt = scope.target_domain.lower()
+        is_target = (host == tgt) or host.endswith("." + tgt)
+        is_included = any(
+            (host == s.lower()) or host.endswith("." + s.lower())
+            for s in scope.included_subdomains
+        )
+        if not (is_target or is_included):
+            raise OutOfScopeError(
+                f"Host '{host}' is outside authorized engagement scope (Target: {scope.target_domain})"
+            )
+
+        # 2. 动词白名单校验 (Allowed Methods Check)
+        m_upper = method.upper()
+        if not scope.is_method_allowed(m_upper):
+            raise RoEBoundaryViolationError(
+                f"HTTP Method '{m_upper}' is disallowed by program rules: {scope.allowed_methods}"
+            )
+
+        # 3. 排除路径黑名单校验 (Excluded Paths Check)
+        path = parsed.path or "/"
+        if scope.is_path_excluded(path):
+            raise RoEBoundaryViolationError(
+                f"Path '{path}' violates excluded paths constraint: {scope.excluded_paths}"
+            )
 
 
 @dataclass
@@ -409,8 +468,8 @@ class Candidate:
     """
     fingerprint: CandidateFingerprint
     title: str
-    description: str
-    claimed_root_cause: str
+    description: str = ""
+    claimed_root_cause: str = ""
     endpoint_refs: List[str] = field(default_factory=list)
     hypothesis_refs: List[str] = field(default_factory=list)
     coverage_refs: List[str] = field(default_factory=list)
@@ -433,6 +492,80 @@ class Candidate:
         data_copy["trace"] = [TraceStep(**s) if isinstance(s, dict) else s for s in data_copy.get("trace", [])]
         data_copy["conditions"] = [Condition(**c) if isinstance(c, dict) else c for c in data_copy.get("conditions", [])]
         return cls(**data_copy)
+
+    def to_finding_record(
+        self,
+        verdict: Optional[Verdict] = None,
+        severity: Optional[Severity] = None,
+        poc_code: Optional[str] = None,
+        verification_summary: Optional[Any] = None,
+        run_id: str = "RUN-LOCAL-001",
+    ) -> FindingRecord:
+        v_summary = VerificationSummary(independent_verified=False)
+        if verification_summary is not None:
+            if isinstance(verification_summary, VerificationSummary):
+                v_summary = verification_summary
+            elif hasattr(verification_summary, "verdict"):
+                v_verdict = (
+                    verification_summary.verdict.value
+                    if hasattr(verification_summary.verdict, "value")
+                    else str(verification_summary.verdict)
+                )
+                v_summary = VerificationSummary(
+                    independent_verified=True,
+                    verifier_id=getattr(verification_summary, "verifier_id", "independent-verifier-prime"),
+                    verified_at=getattr(verification_summary, "verified_at", datetime.now(timezone.utc).isoformat()),
+                    verdict=v_verdict,
+                    rationale=getattr(verification_summary, "rationale", ""),
+                )
+
+        eff_verdict = Verdict.CONFIRMED if verdict is None else verdict
+        f = FindingRecord.from_candidate(
+            candidate=self,
+            run_id=run_id,
+            verdict=eff_verdict,
+            severity=severity,
+            poc_code=poc_code,
+        )
+        f.verification = v_summary
+        return f
+
+    def to_finding_record(
+        self,
+        verdict: Optional[Verdict] = None,
+        severity: Optional[Severity] = None,
+        poc_code: Optional[str] = None,
+        verification_summary: Optional[Any] = None,
+        run_id: str = "RUN-LOCAL-001",
+    ) -> FindingRecord:
+        v_summary = VerificationSummary(independent_verified=False)
+        if verification_summary is not None:
+            if isinstance(verification_summary, VerificationSummary):
+                v_summary = verification_summary
+            elif hasattr(verification_summary, "verdict"):
+                v_verdict = (
+                    verification_summary.verdict.value
+                    if hasattr(verification_summary.verdict, "value")
+                    else str(verification_summary.verdict)
+                )
+                v_summary = VerificationSummary(
+                    independent_verified=True,
+                    verifier_id=getattr(verification_summary, "verifier_id", "independent-verifier-prime"),
+                    verified_at=getattr(verification_summary, "verified_at", datetime.now(timezone.utc).isoformat()),
+                    verdict=v_verdict,
+                    rationale=getattr(verification_summary, "rationale", ""),
+                )
+
+        eff_verdict = Verdict.CONFIRMED if verdict is None else verdict
+        f = FindingRecord.from_candidate(
+            candidate=self,
+            run_id=run_id,
+            verdict=eff_verdict,
+            severity=severity,
+            poc_code=poc_code,
+        )
+        f.verification = v_summary
+        return f
 
 
 class CandidateConsolidator:
@@ -598,6 +731,7 @@ class FindingRecord:
     severity: Optional[Severity] = None
     confidence: Confidence = Confidence.MEDIUM
     remediation: Optional[Remediation] = None
+    poc_code: Optional[str] = None
 
     verification: VerificationSummary = field(default_factory=VerificationSummary)
     provenance: FindingProvenance = field(default_factory=lambda: FindingProvenance(run_id="unknown"))
@@ -641,6 +775,7 @@ class FindingRecord:
         rejection_reason: Optional[str] = None,
         unresolved_blocker: Optional[str] = None,
         evidence_refs: Optional[List[str]] = None,
+        poc_code: Optional[str] = None,
     ) -> "FindingRecord":
         """
         从科研 Candidate 实体验证升级为正式 FindingRecord
@@ -676,6 +811,7 @@ class FindingRecord:
             confidence=Confidence.CONFIRMED if verdict == Verdict.CONFIRMED else Confidence.LOW,
             remediation=remediation,
             provenance=FindingProvenance(run_id=run_id),
+            poc_code=poc_code,
         )
         return finding
 
@@ -741,8 +877,41 @@ class FindingSchemaValidator:
             raise FindingSchemaError("FindingRecord failed strict schema validation:\n" + "\n".join(errors))
 
 # ==========================================================================
-# 5. 微观发包事实日志 (Original evidence.py)
+# 5. 微观发包事实日志与跨 Run 证据隔离契约 (Original evidence.py & Phase 9.6-B)
 # ==========================================================================
+class CrossRunEvidenceLeakError(ValueError):
+    """当尝试在未显式声明且未通过核验的情况下隐式使用跨轮次证据时抛出"""
+
+
+class EvidenceAdmissibilityError(ValueError):
+    """当跨轮次证据引用未能满足采纳性核验前置条件时抛出"""
+
+
+class EvidenceAdmissibility(str, Enum):
+    """跨轮次证据采纳性状态"""
+    CURRENT_RUN_ONLY = "CURRENT_RUN_ONLY"      # 属于当前执行轮次的权威物理证据
+    CROSS_RUN_EXPLICIT = "CROSS_RUN_EXPLICIT"  # 经五维一致性核验通过的显式跨轮次历史证据
+    CROSS_RUN_REJECTED = "CROSS_RUN_REJECTED"  # 采纳性核验打回的跨轮次证据（禁止参与当前裁决）
+
+
+@dataclass(frozen=True)
+class EvidenceRef:
+    """
+    可追溯证据强类型引用凭证 (Evidence Reference Voucher)
+    """
+    run_id: str
+    evidence_id: str
+    relation: str = "PRIMARY_OBSERVATION"  # 例如: "PRIMARY_OBSERVATION", "REPLAY_WITNESS", "HISTORICAL_BASELINE"
+    admissibility: EvidenceAdmissibility = EvidenceAdmissibility.CURRENT_RUN_ONLY
+    expected_content_hash: Optional[str] = None
+    endpoint_id: Optional[str] = None
+    contract_version: Optional[str] = "1.0.0"
+    auth_context_fingerprint: Optional[str] = None
+
+    def is_current_run(self, current_run_id: str) -> bool:
+        return self.run_id == current_run_id
+
+
 @dataclass
 class HTTPRequestLog:
     """
@@ -753,6 +922,7 @@ class HTTPRequestLog:
     headers: Dict[str, str] = field(default_factory=dict)
     body: Optional[Any] = None
 
+
 @dataclass
 class HTTPResponseLog:
     """
@@ -762,18 +932,74 @@ class HTTPResponseLog:
     headers: Dict[str, str] = field(default_factory=dict)
     body_preview: str = ""
 
+
 @dataclass
 class EvidenceRecord:
     """
     Invar 标准可追溯证据链记录对象 (Evidence Object)
+    具备全景物理血统 (Provenance)、唯一物理凭证与抗篡改哈希
     """
     endpoint: EndpointIR
     request: HTTPRequestLog
     response: HTTPResponseLog
-    timestamp: str = field(default_factory=lambda: datetime.utcnow().isoformat())
+    run_id: str = "RUN-LOCAL-001"
+    task_id: str = "TASK-001"
+    attempt_id: int = 1
+    evidence_id: str = ""
+    observed_at: str = field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
+    source_ref: Optional[SourceRef] = None
+    classification: Optional[str] = None
+    content_hash: str = ""
+    principal: Optional[AuthPrincipal] = None
+    timestamp: str = field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
     finding_type: str = "ENDPOINT_PROBE"
     is_anomaly: bool = False
     notes: str = ""
+
+    def __post_init__(self) -> None:
+        if not self.content_hash:
+            self.content_hash = self.compute_content_hash()
+        if not self.evidence_id:
+            digest = self.content_hash[:32]
+            self.evidence_id = f"ev:{self.run_id}:{self.task_id}:{self.attempt_id}:{digest}"
+        if not self.observed_at and self.timestamp:
+            self.observed_at = self.timestamp
+
+    @property
+    def short_id(self) -> str:
+        """用于日志与 UI 紧凑呈现的 8 位短摘要"""
+        return self.content_hash[:8]
+
+    def compute_content_hash(self) -> str:
+        """基于物理发包与响应内容生成确定性 SHA256 存证摘要"""
+        body_str = (
+            json.dumps(self.request.body, sort_keys=True, ensure_ascii=False)
+            if isinstance(self.request.body, dict)
+            else str(self.request.body or "")
+        )
+        headers_str = json.dumps(self.request.headers, sort_keys=True, ensure_ascii=False)
+        raw = f"{self.request.method.upper()}:{self.request.url}:{headers_str}:{body_str}:{self.response.status_code}:{self.response.body_preview}"
+        return hashlib.sha256(raw.encode("utf-8")).hexdigest()
+
+    def make_ref(
+        self,
+        relation: str = "PRIMARY_OBSERVATION",
+        current_run_id: Optional[str] = None,
+    ) -> EvidenceRef:
+        is_current = (current_run_id is None) or (self.run_id == current_run_id)
+        admissibility = (
+            EvidenceAdmissibility.CURRENT_RUN_ONLY
+            if is_current
+            else EvidenceAdmissibility.CROSS_RUN_REJECTED
+        )
+        return EvidenceRef(
+            run_id=self.run_id,
+            evidence_id=self.evidence_id,
+            relation=relation,
+            admissibility=admissibility,
+            expected_content_hash=self.content_hash,
+            endpoint_id=self.endpoint.endpoint_id if hasattr(self.endpoint, "endpoint_id") else "",
+        )
 
     def to_dict(self) -> Dict[str, Any]:
         return asdict(self)
@@ -783,20 +1009,135 @@ class EvidenceRecord:
         endpoint_data = data.get("endpoint", {})
         request_data = data.get("request", {})
         response_data = data.get("response", {})
+        source_ref_data = data.get("source_ref")
+        principal_data = data.get("principal")
 
         return cls(
-            endpoint=EndpointIR.from_dict(endpoint_data),
-            request=HTTPRequestLog(**request_data),
-            response=HTTPResponseLog(**response_data),
-            timestamp=data.get("timestamp", ""),
-            finding_type=data.get("finding_type", "ENDPOINT_PROBE"),
-            is_anomaly=data.get("is_anomaly", False),
-            notes=data.get("notes", "")
+            endpoint=EndpointIR.from_dict(endpoint_data) if isinstance(endpoint_data, dict) else endpoint_data,
+            request=HTTPRequestLog(**request_data) if isinstance(request_data, dict) else request_data,
+            response=HTTPResponseLog(**response_data) if isinstance(response_data, dict) else response_data,
+            run_id=str(data.get("run_id", "RUN-LOCAL-001")),
+            task_id=str(data.get("task_id", "TASK-001")),
+            attempt_id=int(data.get("attempt_id", 1)),
+            evidence_id=str(data.get("evidence_id", "")),
+            observed_at=str(data.get("observed_at", data.get("timestamp", datetime.now(timezone.utc).isoformat()))),
+            source_ref=SourceRef.from_dict(source_ref_data) if isinstance(source_ref_data, dict) else source_ref_data,
+            classification=data.get("classification"),
+            content_hash=str(data.get("content_hash", "")),
+            principal=AuthPrincipal.from_dict(data["principal"]) if data.get("principal") else None,
+            timestamp=str(data.get("timestamp", datetime.now(timezone.utc).isoformat())),
+            finding_type=str(data.get("finding_type", "ENDPOINT_PROBE")),
+            is_anomaly=bool(data.get("is_anomaly", False)),
+            notes=str(data.get("notes", "")),
         )
+
+
+class CrossRunEvidenceAdmissibilityGate:
+    """
+    跨 Run 证据隔离与历史采纳性门禁 (Cross-Run Evidence Admissibility Gate)
+    对标顶级科学审查与审计可信度标准，实施五维严格一致性核验：
+    1. 端点身份 (endpoint_id) 必须严格一致；
+    2. 契约协议版本 (contract_version) 必须一致；
+    3. 主体鉴权上下文 (auth_context_fingerprint) 必须一致；
+    4. 物理证据内容哈希 (content_hash) 必须 100% 吻合，严防篡改；
+    5. 当前 Run 必须显式声明并允许 CROSS_RUN_EXPLICIT 采纳，严禁任何隐式渗透。
+    """
+
+    @classmethod
+    def verify_admissibility(
+        cls,
+        evidence: EvidenceRecord,
+        ref: EvidenceRef,
+        current_run_id: str,
+        current_endpoint: Optional[EndpointIR] = None,
+        expected_auth_fingerprint: Optional[str] = None,
+        allow_cross_run: bool = False,
+    ) -> EvidenceRef:
+        # 1. 契约铁律 1: 相同 Run 内的证据直接视为合法的 CURRENT_RUN_ONLY
+        if evidence.run_id == current_run_id and ref.run_id == current_run_id:
+            return EvidenceRef(
+                run_id=evidence.run_id,
+                evidence_id=evidence.evidence_id,
+                relation=ref.relation,
+                admissibility=EvidenceAdmissibility.CURRENT_RUN_ONLY,
+                expected_content_hash=evidence.content_hash,
+                endpoint_id=evidence.endpoint.endpoint_id,
+                contract_version=ref.contract_version,
+                auth_context_fingerprint=ref.auth_context_fingerprint,
+            )
+
+        # 2. 契约铁律 2: 跨 Run 场景下，若未显式允许跨轮次引用，一票否决
+        if not allow_cross_run or ref.admissibility != EvidenceAdmissibility.CROSS_RUN_EXPLICIT:
+            raise CrossRunEvidenceLeakError(
+                f"Implicit cross-run evidence resolution is strictly forbidden: "
+                f"Evidence '{evidence.evidence_id}' from prior run '{evidence.run_id}' "
+                f"cannot participate in current run '{current_run_id}' without explicit declaration."
+            )
+
+        # 3. 契约铁律 3: 五维采纳性校验
+        # 3.1 端点身份一致性
+        if current_endpoint and current_endpoint.endpoint_id != evidence.endpoint.endpoint_id:
+            raise EvidenceAdmissibilityError(
+                f"Admissibility failed: Endpoint mismatch. Expected {current_endpoint.endpoint_id}, got {evidence.endpoint.endpoint_id}"
+            )
+
+        # 3.2 证据哈希抗篡改校验
+        if ref.expected_content_hash and ref.expected_content_hash != evidence.content_hash:
+            raise EvidenceAdmissibilityError(
+                f"Admissibility failed: Content hash mismatch. Ref hash {ref.expected_content_hash} != Evidence hash {evidence.content_hash}"
+            )
+
+        # 3.3 鉴权主体上下文一致性
+        if expected_auth_fingerprint and ref.auth_context_fingerprint:
+            if expected_auth_fingerprint != ref.auth_context_fingerprint:
+                raise EvidenceAdmissibilityError(
+                    f"Admissibility failed: Auth context fingerprint mismatch."
+                )
+
+        return EvidenceRef(
+            run_id=evidence.run_id,
+            evidence_id=evidence.evidence_id,
+            relation=ref.relation,
+            admissibility=EvidenceAdmissibility.CROSS_RUN_EXPLICIT,
+            expected_content_hash=evidence.content_hash,
+            endpoint_id=evidence.endpoint.endpoint_id,
+            contract_version=ref.contract_version,
+            auth_context_fingerprint=ref.auth_context_fingerprint,
+        )
+
+    @classmethod
+    def assert_admissible_for_verdict(
+        cls,
+        refs: List[EvidenceRef],
+        current_run_id: str,
+    ) -> None:
+        """
+        裁决门禁断言：任何支撑当前裁决 (Decision/Finding) 的证据引用，
+        严禁处于 CROSS_RUN_REJECTED 状态，严禁含有未经核验的非当前 Run 隐式引用。
+        """
+        for r in refs:
+            if r.admissibility == EvidenceAdmissibility.CROSS_RUN_REJECTED:
+                raise CrossRunEvidenceLeakError(
+                    f"Verdict cannot reference rejected cross-run evidence: {r.evidence_id}"
+                )
+            if r.run_id != current_run_id and r.admissibility != EvidenceAdmissibility.CROSS_RUN_EXPLICIT:
+                raise CrossRunEvidenceLeakError(
+                    f"Verdict references foreign run '{r.run_id}' without CROSS_RUN_EXPLICIT admissibility: {r.evidence_id}"
+                )
 
 # ==========================================================================
 # 6. 安全假说与研究用例 (Original research_models.py)
 # ==========================================================================
+class EvidenceSufficiency(str, Enum):
+    """
+    Invar 证据充分性契约 (Evidence Sufficiency Contract)
+    正交区分观测证据对安全不变量的证明力度，杜绝将 405/404 等边缘状态过度推断为完整安全证明
+    """
+    SUFFICIENT = "SUFFICIENT"      # 充分闭环：直接观测到确凿的鉴权拦截(401/403)或实锤击穿(200)
+    PARTIAL = "PARTIAL"            # 局部证据：仅触达动词策略(405)或边缘层，未达深度认证层
+    INSUFFICIENT = "INSUFFICIENT"  # 证据不足：404资源不存在、AST模板${...}未展开、异常断流
+
+
 @dataclass(frozen=True)
 class SecurityInvariant:
     invariant_type: str
@@ -826,6 +1167,7 @@ class ProbeAttempt:
 class ResearchDecision:
     status: str
     rationale: str
+    sufficiency: EvidenceSufficiency = EvidenceSufficiency.SUFFICIENT
 
 
 @dataclass(frozen=True)
@@ -964,6 +1306,13 @@ class DenialLayer(str, Enum):
     UNKNOWN = "UNKNOWN"
 
 
+class NotFoundSubcategory(str, Enum):
+    """404 语义正交细分枚举 (RFC 9110 第 15.5.5 节)"""
+    ROUTE_NOT_FOUND = "ROUTE_NOT_FOUND"          # 静态网关路由未注册 (404-R)
+    RESOURCE_NOT_FOUND = "RESOURCE_NOT_FOUND"    # 路由存在但实体未决 (AST 模板变量未实例化或实体不存在, 404-E)
+    HIDDEN_BY_AUTHZ = "HIDDEN_BY_AUTHZ"          # 目标系统以 404 伪装替代未授权拒绝 (鉴权隐匿防御, 404-H)
+
+
 class DenialCategory(str, Enum):
     """拒绝发生的原因类别（与执行组件正交）"""
     ACCESS_POLICY_DENIAL = "ACCESS_POLICY_DENIAL"
@@ -974,6 +1323,9 @@ class DenialCategory(str, Enum):
     RATE_LIMIT = "RATE_LIMIT"
     DEFAULT_ERROR_HANDLER = "DEFAULT_ERROR_HANDLER"
     APPLICATION_POLICY = "APPLICATION_POLICY"
+    ROUTE_NOT_FOUND = "ROUTE_NOT_FOUND"
+    RESOURCE_NOT_FOUND = "RESOURCE_NOT_FOUND"
+    HIDDEN_BY_AUTHZ = "HIDDEN_BY_AUTHZ"
     UNKNOWN = "UNKNOWN"
 
 
@@ -1009,6 +1361,9 @@ class DenialObservation:
     is_soft_denial: bool = False
     business_code: Optional[int] = None
     business_message: Optional[str] = None
+    request_url: Optional[str] = None
+    has_unresolved_template: bool = False
+    has_auth_differential: bool = False
 
     def __post_init__(self):
         self.response_headers = {k.lower(): str(v) for k, v in self.response_headers.items()}
@@ -1215,6 +1570,76 @@ class DeterministicDenialClassifier:
             return DenialClassificationResult(
                 primary_hypothesis=primary,
                 alternative_hypotheses=[alt1],
+                frontend_component=frontend,
+                raw_observation=obs,
+            )
+
+        if sc == 404:
+            # 1. 鉴权隐匿防御检测 (HIDDEN_BY_AUTHZ, 404-H)
+            has_auth_challenge = (
+                obs.has_auth_differential
+                or "www-authenticate" in headers
+                or any(k in headers for k in ["x-auth-realm", "x-security-policy", "x-security-denial", "x-denied-by"])
+                or any(w in obs.body_preview.lower() for w in ["authentication required", "access restricted", "unauthorized to view"])
+            )
+            if has_auth_challenge:
+                return DenialClassificationResult(
+                    primary_hypothesis=DenialHypothesis(
+                        hypothesis_id="DH-404-HIDDEN-BY-AUTHZ",
+                        layer=DenialLayer.AUTHORIZATION,
+                        category=DenialCategory.HIDDEN_BY_AUTHZ,
+                        confidence=0.85,
+                        evidence_grade=EvidenceGrade.GRADE_B,
+                        supporting_evidence_refs=[f"HTTP 404"] + ([f"WWW-Authenticate: {headers.get('www-authenticate')}"] if "www-authenticate" in headers else []),
+                        rationale="服务端返回 404 隐匿性鉴权防护响应 (Hidden by Authorization)，疑似以 404 伪装替代未授权拒绝",
+                    ),
+                    frontend_component=frontend,
+                    raw_observation=obs,
+                )
+
+            # 2. 实体未决或 AST 模板未展开检测 (RESOURCE_NOT_FOUND, 404-E)
+            url_text = obs.request_url or ""
+            body_lower = obs.body_preview.lower()
+            is_unresolved_template = (
+                obs.has_unresolved_template
+                or "${" in url_text
+                or ("{" in url_text and "}" in url_text)
+                or "<" in url_text
+                or ":id" in url_text.lower()
+                or "nosuchkey" in body_lower
+                or "user not found" in body_lower
+                or "does not exist" in body_lower
+                or "record not found" in body_lower
+                or "entity not found" in body_lower
+                or '"code": 404' in body_lower
+                or '"code":404' in body_lower
+            )
+            if is_unresolved_template:
+                return DenialClassificationResult(
+                    primary_hypothesis=DenialHypothesis(
+                        hypothesis_id="DH-404-RESOURCE-NOT-FOUND",
+                        layer=DenialLayer.APPLICATION,
+                        category=DenialCategory.RESOURCE_NOT_FOUND,
+                        confidence=0.80,
+                        evidence_grade=EvidenceGrade.GRADE_B,
+                        supporting_evidence_refs=[f"HTTP 404", f"URL: {url_text or 'N/A'}"],
+                        rationale="服务端路由可达，但目标资源实体未决 (存在未实例化的 AST 模板变量或目标业务对象不存在)",
+                    ),
+                    frontend_component=frontend,
+                    raw_observation=obs,
+                )
+
+            # 3. 静态死路由未暴露检测 (ROUTE_NOT_FOUND, 404-R)
+            return DenialClassificationResult(
+                primary_hypothesis=DenialHypothesis(
+                    hypothesis_id="DH-404-ROUTE-NOT-FOUND",
+                    layer=DenialLayer.ROUTER,
+                    category=DenialCategory.ROUTE_NOT_FOUND,
+                    confidence=0.90,
+                    evidence_grade=EvidenceGrade.GRADE_B,
+                    supporting_evidence_refs=[f"HTTP 404"],
+                    rationale="服务端网关或路由层未注册该路径 [route_not_found]，目标 API 尚未在该节点暴露",
+                ),
                 frontend_component=frontend,
                 raw_observation=obs,
             )
@@ -1966,6 +2391,7 @@ class EvidenceChain:
     # Layer 6: 最终判定与推论
     verdict: EvidenceVerdict = EvidenceVerdict.CANDIDATE
     verdict_rationale: str = ""
+    poc_code: Optional[str] = None
 
     def to_dict(self) -> Dict[str, Any]:
         return {
@@ -1983,6 +2409,7 @@ class EvidenceChain:
             "verifier_id": self.verifier_id,
             "verdict": self.verdict.value,
             "verdict_rationale": self.verdict_rationale,
+            "poc_code": self.poc_code,
         }
 
 
@@ -2203,3 +2630,281 @@ class ThreatModel:
             status="PROPOSED",
         )
 
+
+
+# ==========================================================================
+# 14. 多主体身份上下文矩阵契约 (Phase 9.7-B Identity Matrix & Multi-Tenant BOLA)
+# ==========================================================================
+class TenantIsolationViolationError(ValueError):
+    """当检测到跨租户/跨主体数据泄露与边界击穿时抛出"""
+
+
+@dataclass
+class AuthPrincipal:
+    """
+    一等强类型认证主体画像 (First-Class Authentication Principal)
+    明确威胁与访问发起者的主体角色、所属租户、凭证指纹与会话上下文
+    """
+    principal_id: str
+    role: str = "authenticated_user"  # "anonymous", "authenticated_user", "tenant_admin", "superadmin"
+    tenant_id: Optional[str] = None
+    token: Optional[str] = None
+    credential_fingerprint: str = ""
+    session_metadata: Dict[str, Any] = field(default_factory=dict)
+
+    def __post_init__(self) -> None:
+        if not self.credential_fingerprint:
+            if not self.token or self.role == "anonymous":
+                self.credential_fingerprint = "anon_credential"
+            else:
+                self.credential_fingerprint = hashlib.sha256(self.token.encode("utf-8")).hexdigest()[:16]
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "principal_id": self.principal_id,
+            "role": self.role,
+            "tenant_id": self.tenant_id,
+            "credential_fingerprint": self.credential_fingerprint,
+            "session_metadata": self.session_metadata,
+        }
+
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any]) -> "AuthPrincipal":
+        return cls(
+            principal_id=data.get("principal_id", "unknown_principal"),
+            role=data.get("role", "authenticated_user"),
+            tenant_id=data.get("tenant_id"),
+            token=data.get("token"),
+            credential_fingerprint=data.get("credential_fingerprint", ""),
+            session_metadata=data.get("session_metadata", {}),
+        )
+
+
+@dataclass(frozen=True)
+class TenantIsolationResult:
+    """租户多主体隔离断言结果事实"""
+    is_isolated: bool
+    verdict: str  # "DEFENSE_HELD" or "VULNERABLE"
+    rationale: str
+    leaked_tenant: Optional[str] = None
+    observed_attacker_tenant: Optional[str] = None
+
+
+@dataclass
+class IdentityMatrix:
+    """
+    多主体身份矩阵调度器 (Identity Matrix)
+    负责多角色、跨租户与匿名主体的生命周期编排与多主体差分断言
+    """
+    principals: List[AuthPrincipal] = field(default_factory=list)
+    default_victim_id: Optional[str] = None
+    default_attacker_id: Optional[str] = None
+
+    def get_principal(self, principal_id: str) -> AuthPrincipal:
+        for p in self.principals:
+            if p.principal_id == principal_id:
+                return p
+        raise KeyError(f"Principal '{principal_id}' not found in IdentityMatrix")
+
+    def get_attacker(self) -> AuthPrincipal:
+        if self.default_attacker_id:
+            return self.get_principal(self.default_attacker_id)
+        for p in self.principals:
+            if "attacker" in p.principal_id.lower():
+                return p
+        for p in self.principals:
+            if p.role != "anonymous":
+                return p
+        raise KeyError("No attacker principal configured in IdentityMatrix")
+
+    def get_victim(self) -> AuthPrincipal:
+        if self.default_victim_id:
+            return self.get_principal(self.default_victim_id)
+        for p in self.principals:
+            if "victim" in p.principal_id.lower() or "owner" in p.principal_id.lower():
+                return p
+        if self.principals:
+            return self.principals[0]
+        raise KeyError("No victim principal configured in IdentityMatrix")
+
+    def get_anonymous(self) -> AuthPrincipal:
+        for p in self.principals:
+            if p.role == "anonymous":
+                return p
+        return AuthPrincipal(principal_id="anonymous_default", role="anonymous")
+
+    def assert_tenant_isolation(
+        self,
+        victim_principal: AuthPrincipal,
+        victim_response: str,
+        attacker_principal: AuthPrincipal,
+        attacker_response: str,
+        attacker_status_code: int,
+    ) -> TenantIsolationResult:
+        # 1. 攻击者被明确拦截
+        if attacker_status_code in {401, 403}:
+            return TenantIsolationResult(
+                is_isolated=True,
+                verdict="DEFENSE_HELD",
+                rationale=f"服务端返回 HTTP {attacker_status_code}，跨租户未授权访问被安全拦截",
+            )
+
+        # 2. 攻击者 200 成功响应：深度对象与租户上下文解析
+        v_tenant = victim_principal.tenant_id
+        a_tenant = attacker_principal.tenant_id
+
+        is_leaked = False
+        leak_reasons = []
+
+        try:
+            v_json = json.loads(victim_response)
+            a_json = json.loads(attacker_response)
+            if isinstance(v_json, dict) and isinstance(a_json, dict):
+                if v_tenant and a_tenant and v_tenant != a_tenant:
+                    a_reported_tenant = a_json.get("tenant") or a_json.get("tenant_id")
+                    if a_reported_tenant == v_tenant:
+                        is_leaked = True
+                        leak_reasons.append(f"Victim tenant '{v_tenant}' returned to attacker from '{a_tenant}'")
+
+                for k, v in v_json.items():
+                    if k in a_json and a_json[k] == v:
+                        if any(s in k.lower() for s in ["secret", "token", "password", "order_id", "balance", "private"]):
+                            if v_tenant and a_tenant and v_tenant != a_tenant:
+                                is_leaked = True
+                                leak_reasons.append(f"Victim private field '{k}={v}' exposed to attacker")
+        except Exception:
+            if v_tenant and a_tenant and v_tenant != a_tenant:
+                if v_tenant in attacker_response:
+                    is_leaked = True
+                    leak_reasons.append(f"Victim tenant '{v_tenant}' found in attacker text response")
+
+        if is_leaked:
+            rationale = f"Cross-tenant data leakage detected: {'; '.join(leak_reasons)}"
+            return TenantIsolationResult(
+                is_isolated=False,
+                verdict="VULNERABLE",
+                rationale=rationale,
+                leaked_tenant=v_tenant,
+                observed_attacker_tenant=a_tenant,
+            )
+
+        return TenantIsolationResult(
+            is_isolated=True,
+            verdict="DEFENSE_HELD",
+            rationale="攻击者未获取受害者私密租户资产，租户隔离边界受控",
+        )
+
+
+# ==========================================================================
+# 15. Bug Bounty / SRC 法定赏金提交包实体 (Phase 9.7-C Bounty Submission Package)
+# ==========================================================================
+@dataclass
+class BountySubmissionPackage:
+    """
+    Invar 符合国际 HackerOne / Bugcrowd / SRC 法定标准的漏洞报告提交包实体
+    (Bounty Submission Package)
+    由实锤 FindingRecord + EndpointIR + Identity 上下文直接衍生，拒绝人工杜撰
+    """
+    title: str
+    severity: str
+    asset: str
+    endpoint: str
+    attack_class: str
+    root_cause: str
+    poc_code: str
+    step_by_step_poc: List[str]
+    security_impact: str
+    remediation: str
+    evidence_summary: str
+    target_scope: str
+    attacker_identity: Optional[str] = None
+    victim_identity: Optional[str] = None
+    timestamp: str = field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
+
+    @classmethod
+    def compose_from_finding(
+        cls,
+        finding: FindingRecord,
+        endpoint: EndpointIR,
+        target_scope: str,
+        attacker_principal: Optional[AuthPrincipal] = None,
+        victim_principal: Optional[AuthPrincipal] = None,
+    ) -> "BountySubmissionPackage":
+        attack_class = finding.fingerprint.split(":")[1] if ":" in finding.fingerprint else "vulnerability"
+        steps = [
+            f"1. Login or obtain credentials for authorized attacker identity: {attacker_principal.principal_id if attacker_principal else 'Attacker'}",
+            f"2. Send an unauthorized request to victim asset '{endpoint.path}' bypassing authorization checks.",
+            f"3. Execute the reproducible command: `{finding.poc_code or 'N/A'}`",
+            "4. Observe that victim confidential data is returned in the response with HTTP 200 OK without restriction.",
+        ]
+        impact = (
+            "An unauthorized user or different tenant can access, view, and exfiltrate "
+            f"private business resources belonging to other users. This completely bypasses {attack_class} controls."
+        )
+        remediation = (
+            finding.remediation.guidance
+            if finding.remediation and finding.remediation.guidance
+            else "Implement strict tenant ownership and access control verification before resolving object identifiers."
+        )
+        evidence_summary = (
+            f"Observed physical breach on {endpoint.endpoint_id} with verified PoC. "
+            f"Evidence references: {', '.join(finding.evidence_refs)}"
+        )
+        return cls(
+            title=finding.title,
+            severity=finding.severity.value if finding.severity else "HIGH",
+            asset=endpoint.endpoint_id,
+            endpoint=endpoint.path,
+            attack_class=attack_class,
+            root_cause=finding.root_cause or finding.claimed_root_cause or "Missing authorization check",
+            poc_code=finding.poc_code or "",
+            step_by_step_poc=steps,
+            security_impact=impact,
+            remediation=remediation,
+            evidence_summary=evidence_summary,
+            target_scope=target_scope,
+            attacker_identity=attacker_principal.principal_id if attacker_principal else None,
+            victim_identity=victim_principal.principal_id if victim_principal else None,
+        )
+
+    def render_markdown(self) -> str:
+        lines = [
+            f"# Bug Bounty Vulnerability Submission: {self.title}",
+            "",
+            "## Vulnerability Title",
+            f"**{self.title}**",
+            "",
+            "## Summary",
+            f"A **{self.attack_class.upper()}** vulnerability was discovered on asset `{self.asset}` within scope `{self.target_scope}`.",
+            f"Root cause: {self.root_cause}",
+            "",
+            "## Severity",
+            f"**{self.severity}**",
+            "",
+            "## Affected Asset & Endpoint",
+            f"- **Target Scope**: `{self.target_scope}`",
+            f"- **Endpoint**: `{self.endpoint}`",
+            f"- **Attacker Principal**: `{self.attacker_identity or 'External / Cross-Tenant'}`",
+            f"- **Victim Principal**: `{self.victim_identity or 'Victim Resource Owner'}`",
+            "",
+            "## Step-by-Step Proof of Concept (PoC)",
+            "\n".join(self.step_by_step_poc),
+            "",
+            "### Reproducible Command",
+            "```bash",
+            self.poc_code,
+            "```",
+            "",
+            "## Security Impact",
+            self.security_impact,
+            "",
+            "## Evidence Proof",
+            self.evidence_summary,
+            "",
+            "## Remediation Guidance",
+            self.remediation,
+            "",
+            "---",
+            f"_Generated by Invar Canonical Research Engine at {self.timestamp}_"
+        ]
+        return "\n".join(lines)

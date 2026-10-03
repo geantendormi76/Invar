@@ -72,11 +72,19 @@ def sanitize(value: Any, *, key: Optional[str] = None) -> Any:
 
     规则：
     1. 敏感字段直接替换。
-    2. 普通字符串进一步处理 JWT / Bearer / 长 token。
-    3. 保持 JSON 可序列化。
+    2. 优先解包 Enum 等承载 .value 的契约实体，消除 Python 3.11+ (str, Enum) 类名前缀污染。
+    3. 普通字符串进一步处理 JWT / Bearer / 长 token。
+    4. 保持 JSON 可序列化。
     """
     if key is not None and _is_sensitive_key(key):
         return "<REDACTED>"
+
+    # 优先解构枚举对象值 (必须位于 isinstance(value, str) 之前)
+    if hasattr(value, "value"):
+        try:
+            return sanitize(value.value)
+        except Exception:
+            pass
 
     if isinstance(value, dict):
         return {
@@ -93,18 +101,14 @@ def sanitize(value: Any, *, key: Optional[str] = None) -> Any:
     if value is None or isinstance(value, (bool, int, float)):
         return value
 
-    if hasattr(value, "value"):
-        try:
-            return sanitize(value.value)
-        except Exception:
-            pass
-
     return sanitize(str(value))
 
 
 def classify_response(
     status_code: int,
     body_preview: str = "",
+    request_url: Optional[str] = None,
+    headers: Optional[Dict[str, str]] = None,
 ) -> str:
     """
     将一次响应归入稳定的分析类别。
@@ -144,6 +148,15 @@ def classify_response(
         return "soft_access_policy_denial"
 
     if status_code == 404:
+        headers_lower = {k.lower(): v for k, v in (headers or {}).items()}
+        if "www-authenticate" in headers_lower:
+            return "hidden_by_authz"
+        url_text = str(request_url or "")
+        body_lower = (body_preview or "").lower()
+        if "${" in url_text or "{" in url_text or "nosuchkey" in body_lower or "user not found" in body_lower or "does not exist" in body_lower:
+            return "resource_not_found"
+        if "cannot get" in body_lower or "no static resource" in body_lower or "nginx" in body_lower:
+            return "route_not_found"
         return "not_found"
 
     if 200 <= status_code <= 299:
@@ -445,6 +458,12 @@ class ExecutionTraceRecorder:
                 else None
             )
 
+            decision_sufficiency = (
+                getattr(decision, "sufficiency", None)
+                if decision is not None
+                else None
+            )
+
             decision_rationale = (
                 getattr(decision, "rationale", "")
                 if decision is not None
@@ -494,8 +513,10 @@ class ExecutionTraceRecorder:
                         else "inconclusive"
                     ),
                     "decision_status": decision_status,
+                    "decision_sufficiency": sanitize(decision_sufficiency),
                     "decision_rationale": sanitize(decision_rationale),
-                    "attempts_count": responses["attempts_count"],
+                    "attempts": responses["attempts"],
+                    "attempts_count": len(responses["attempts"]),
                     "agent_turns_executed": metadata.get(
                         "agent_turns_executed"
                     ),
@@ -589,7 +610,9 @@ class ExecutionTraceRecorder:
                     "elapsed_ms": round(float(elapsed_ms), 3),
                     "runner_status": "error",
                     "decision_status": None,
+                    "decision_sufficiency": None,
                     "decision_rationale": "",
+                    "attempts": [],
                     "attempts_count": 0,
                     "agent_turns_executed": None,
                     "agent_breakthrough": False,

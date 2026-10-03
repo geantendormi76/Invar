@@ -1,3 +1,14 @@
 # -*- coding: utf-8 -*-
 # Forward-compatibility wrapper
-from .domain_contracts import DenialLayer, DenialCategory, FrontendComponent, EvidenceGrade, DenialObservation, SoftDenial, DenialHypothesis, DenialClassificationResult, DeterministicDenialClassifier
+from harness.domain_contracts import (  # noqa: F401
+    DenialLayer,
+    DenialCategory,
+    FrontendComponent,
+    EvidenceGrade,
+    DenialObservation,
+    SoftDenial,
+    DenialHypothesis,
+    DenialClassificationResult,
+    DeterministicDenialClassifier,
+    NotFoundSubcategory,
+)

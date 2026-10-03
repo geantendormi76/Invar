@@ -1,3 +1,15 @@
+# -*- coding: utf-8 -*-
+"""
+=============================================================================
+⚠️ [DEPRECATED - Phase 9.6.5 架构净化标记]
+本模块已被正式标记为待退役/合并资产 (Stale / Redundant Candidate)。
+• 演进去向: Phase 9.8 (Business Context Mutation Skill)
+• 判定理由: 属于针对特定语言框架 (Go struct) 的局部特调硬编码。将在 Phase 9.8 下沉为业务上下文解析策略。
+• 架构铁律: 严禁在此模块追加任何新业务逻辑或特调补丁；现有接口保持冻结兼容，
+            直至对应技能剧本与工具网关就绪后彻底物理退役。
+=============================================================================
+"""
+
 from dataclasses import dataclass
 import re
 from typing import Any, Dict, Tuple

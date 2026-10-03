@@ -1,7 +1,9 @@
+from typing import Any
 import json
 
 from agent.loop_types import ResearchEvent, ResearchEventType
 from harness.coverage_ledger import CoverageStatus, CoverageUnit
+from harness.domain_contracts import EvidenceSufficiency
 from harness.execution_trace import ExecutionTraceRecorder
 from harness.finding_models import FindingRecord, Verdict
 from harness.models import EndpointIR
@@ -21,7 +23,10 @@ def make_coverage() -> CoverageUnit:
     )
 
 
-def make_execution_result() -> ResearchExecutionResult:
+def make_execution_result(
+    status: str = "confirmed",
+    sufficiency: Any = EvidenceSufficiency.SUFFICIENT,
+) -> ResearchExecutionResult:
     endpoint = EndpointIR(
         method="POST",
         path="/api/test",
@@ -41,10 +46,12 @@ def make_execution_result() -> ResearchExecutionResult:
     )
 
     class Decision:
-        status = "confirmed"
-        rationale = "服务端拒绝请求"
+        def __init__(self, s: str, r: str, suff: Any):
+            self.status = s
+            self.rationale = r
+            self.sufficiency = suff
 
-    case.set_decision(Decision())
+    case.set_decision(Decision(status, "服务端拒绝请求", sufficiency))
 
     return ResearchExecutionResult(
         evidence=None,
@@ -102,6 +109,9 @@ def test_execution_trace_writes_one_jsonl_record(tmp_path):
     assert rows[0]["run_id"] == "RUN-001"
     assert rows[0]["task"]["task_id"] == "POST:/api/test"
     assert rows[0]["execution"]["decision_status"] == "confirmed"
+    assert rows[0]["execution"]["decision_sufficiency"] == "SUFFICIENT"
+    assert len(rows[0]["execution"]["attempts"]) == 1
+    assert rows[0]["execution"]["attempts_count"] == 1
     assert rows[0]["responses"]["final_response_category"] == "soft_access_policy_denial"
 
 
@@ -351,4 +361,35 @@ def test_coverage_status_is_separate_from_execution_decision(tmp_path):
 
     assert row["coverage"]["status"] == "covered"
     assert row["execution"]["decision_status"] == "confirmed"
+    assert row["execution"]["decision_sufficiency"] == "SUFFICIENT"
+    assert len(row["execution"]["attempts"]) == 1
 
+def test_sanitize_unpacks_all_enum_types_without_class_prefix():
+    """【回归防线】断言 sanitize 能够无损解包所有 Enum 与 (str, Enum)，绝不泄漏类名前缀"""
+    from enum import Enum, IntEnum
+    from harness.execution_trace import sanitize
+
+    class PlainEnum(Enum):
+        ALPHA = "alpha_val"
+
+    class StrEnum(str, Enum):
+        BETA = "beta_val"
+
+    class IntTestEnum(IntEnum):
+        GAMMA = 42
+
+    nested = {
+        "plain": PlainEnum.ALPHA,
+        "str_enum": StrEnum.BETA,
+        "int_enum": IntTestEnum.GAMMA,
+        "list": [StrEnum.BETA, PlainEnum.ALPHA],
+    }
+
+    sanitized = sanitize(nested)
+
+    assert sanitized["plain"] == "alpha_val"
+    assert sanitized["str_enum"] == "beta_val"
+    assert sanitized["int_enum"] == 42
+    assert sanitized["list"] == ["beta_val", "alpha_val"]
+    assert "PlainEnum" not in json.dumps(sanitized)
+    assert "StrEnum" not in json.dumps(sanitized)

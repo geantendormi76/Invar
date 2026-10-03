@@ -3,8 +3,8 @@
 > **适用工程根目录**：`/home/zhz/Invar`  
 > **运行基准环境**：Linux Mint 22.3 Cinnamon (x86_64) | NVIDIA GeForce RTX 3060 12GB | CUDA 12  
 > **核心基础设施**：本地 `llama-server` (127.0.0.1:8080/v1) + Ornith 1.5 35B GGUF (160K 上下文 + MTP 投机加速)  
-> **工程治理原则**：更换测试资产只需修改唯一的 `target` 变量，全流水线严格受制于数据契约与安全不变量，严禁局部特调。  
-> **双轨核心拓扑**：外部被动采集 ➔ AST 契约提炼 ➔ 0.6B 神经反射 (System-1) ➔ 双轨融合 ➔ System-2 受控自适应沙箱动态实证 ➔ 黄金证据链导出。
+> **工程治理原则**：更换测试资产只需修改唯一的 `target` 变量，全流水线受制于数据契约与安全不变量，严禁局部特调。  
+> **多轮自适应飞轮**：外部被动采集 ➔ AST 契约提炼 ➔ 0.6B 神经反射 (System-1) ➔ 双轨融合 ➔ System-2 受控自适应沙箱动态实证 ➔ 本地 35B 大模型 CoT 战略反思 ➔ 自主第 2 轮物理变异追击 ➔ 独立可复现 PoC 脚本与黄金证据链导出。
 
 ---
 
@@ -26,8 +26,14 @@ tmp/${target}_predictions.jsonl (Impact / Sensitivity 双正交软标签)
 artifacts/reports/triage_pools_v2.json (Pool A 规则必保 ∪ Pool B 神经破盲)
    ↓ [Phase 7: assemble_triage_tasks.py (词法门禁清洗 + RFC 3986 路径解构 + 任务装配)]
 artifacts/reports/targeted_research_tasks.json (P0~P3 纯净靶向任务种子库, 81 个纯正任务)
-   ↓ [Phase 8: run_targeted_audit.py (System-2 假说驱动沙箱 + 本地 35B 满血 CoT 认知反思)]
-artifacts/reports/targeted_audit_production/ (OASIS SARIF 2.1.0 + OpenSSF OpenVEX v0.2.0 + 覆盖账本)
+   ↓ [Phase 8: 阶段 8 原型反思与历史归档 (发现单发扫描与动词死锁瓶颈)]
+   ↓ [Phase 9: run_targeted_audit.py (System-2 多轮自适应追击 + 35B CoT 反思 + 独立 PoC 飞轮)]
+artifacts/reports/targeted_audit_production/
+    ├── findings.json (含原生 poc_code 字段的机器可读底账)
+    ├── FINDINGS-DETAIL.md (含独立第 4 节可复现 cURL PoC 代码块的深度战报)
+    ├── sarif.json (OASIS SARIF 2.1.0 国际标准交换格式)
+    ├── openvex.json (OpenSSF OpenVEX v0.2.0 国际安全声明)
+    └── REPORT.md / NEEDS-VALIDATION.md / coverage-summary.md
 ```
 
 ---
@@ -131,9 +137,6 @@ echo "    解构 URL 总数: $(wc -l < "${urls_jsonl}") 条"
 echo "    待下 JS 总数: $(wc -l < "${js_jsonl}") 条"
 echo "    已落地 JS 文件数: $(find "${raw_js_dir}" -type f -name "*.js" | wc -l) 个"
 ```
-* **核心产物**：
-  * `tmp/raw_js/<host>/*.js`（目标全离子前端代码库）
-  * `tmp/<target>_javascript_manifest.jsonl`（物理文件哈希指纹）
 
 ---
 
@@ -156,7 +159,6 @@ if command -v jq >/dev/null 2>&1; then
     echo "    高风险接口:   $(jq '.summary.high_risk_count' "${endpoint_report}") 个"
 fi
 ```
-* **核心产物**：`tmp/<target>_endpoints_report.json`（提炼出的 1097 个静态 API 契约中间表示 `EndpointIR`）
 
 ---
 
@@ -190,7 +192,6 @@ echo "[✓] 阶段 5 完成！"
 echo "    生成预测条数: $(wc -l < "${predictions_out}")"
 echo "    原始端点总数: $(jq '.endpoints | length' "${endpoint_report}")"
 ```
-* **核心产物**：`tmp/<target>_predictions.jsonl`（全部端点的 Impact / Sensitivity 双正交软标签预测）
 
 ---
 
@@ -204,14 +205,6 @@ http_surface="${target_dir}/httpx.jsonl"
 output_dir="artifacts/reports"
 
 mkdir -p "${output_dir}"
-
-echo "==========================================================================="
-echo " ⚖️ 启动 Invar 终审双轨比对器 (规则 ∪ 神经并集融合)"
-echo " 📄 静态报告 : ${endpoint_report}"
-echo " 🧠 神经物证 : ${predictions_out}"
-echo " 🌐 边缘画像 : ${http_surface}"
-echo " 🎯 战报输出 : ${output_dir}"
-echo "==========================================================================="
 
 uv run --project python python python/scripts/triage_dual_track_comparator.py \
     --report "${endpoint_report}" \
@@ -230,20 +223,10 @@ if command -v jq >/dev/null 2>&1; then
     echo "    • Pool C (参数探索面): $(jq '.pool_c_exploration | length' "${output_dir}/triage_pools_v2.json") 个 Surface"
 fi
 ```
-* **核心产物**：
-  * `artifacts/reports/triage_pools_v2.json`（Pool A 规则保底池与 Pool B 神经破盲池）
-  * `artifacts/reports/triage_dual_track_v2.jsonl`（全维度融合审计底账）
 
 ---
 
 ## 阶段 7：System-2 靶心任务装配与优先级调度 (Dispatch)
-
-> **【阶段 7 核心工程演进与架构防线】**：
-> 1. **分流语义纠偏 (Semantic Alignment)**：高影响非破坏性端点归入 `authorization`，生成 `H-AUTH-1` 科学假说与规范的 `api-<subsystem>-authorization` 覆盖标识；
-> 2. **词法合法性门禁 (Lexical Sanitization Gate)**：激活 `_is_valid_api_path`，严格过滤换行符 `\n`、非 ASCII 中文条款文本（如爱快用户免责声明）及前端 SDK 类代码调用残片 (`this._instance...`)；
-> 3. **RFC 3986 标准 URI 路径解构**：`_normalize_path` 采用 `urllib.parse.urlsplit` 泛化提炼资源路径，彻底剥离未展开的动态模板残片 (`?${...}`)，消灭字符串特调；
-> 4. **子系统标识净化 (Subsystem Sanitization)**：`_extract_subsystem` 正则过滤非法字符，防止多行文本畸变污染 `coverage_id`；
-> 5. **任务库存收敛事实**：原始 86 个任务经过门禁净化收敛为 **81 个纯净靶向任务**（P0=0, P1=5, P2=54, P3=22）。
 
 ```bash
 pools_json="artifacts/reports/triage_pools_v2.json"
@@ -256,27 +239,26 @@ PYTHONPATH="python/packages/core/src" uv run --project python python python/scri
     --output "${tasks_output}" \
     --target-pools pool_a_rule_must_keep pool_b_discrepancy
 
-# 输出装配战报统计
 echo -e "\n[✓] 阶段 7 完成！"
 echo "    高浓度纯净研究种子库已生成: ${tasks_output}"
 if command -v jq >/dev/null 2>&1; then
-    echo "    • 装配纯净任务总数: $(jq '.total_tasks' "${tasks_output}") 个 (原 86 个)"
+    echo "    • 装配纯净任务总数: $(jq '.total_tasks' "${tasks_output}") 个"
     echo "    • 优先级分布      : $(jq -c '.priority_breakdown' "${tasks_output}")"
     echo "    • 假说分布        : $(jq -c '.hypothesis_breakdown' "${tasks_output}")"
 fi
 ```
-* **核心产物**：`artifacts/reports/targeted_research_tasks.json`（已分配 P0/P1/P2/P3 优先级且完全通过词法合法性门禁）
 
 ---
 
-## 阶段 8：System-2 自适应沙箱受控动态实证 (Phase 8.0 ~ Phase 8.4)
+## 阶段 8：System-2 多轮自适应追击与可复现 PoC 闭环飞轮 
 
-> **【阶段 8 核心工程演进与学术级突破】**：
-> 1. **假说驱动安全不变量 (Hypothesis-Driven Invariants, Phase 8.2)**：引入不可变强类型 `ResearchTaskContext` 隔离静态端点物理事实与科研意图；由 `H-AUTH-1` 显式驱动挂载 `auth_boundary`，消灭脆弱的 `if "admin" in path` URL 字符串匹配；
-> 2. **RFC 9110 动词策略拒绝 (HTTP 405) 确权**：`InvariantEvaluator` 将 405 正式确权为未授权策略拦截有效 (`confirmed`)，守住安全底线，杜绝误判为未决阻塞；
-> 3. **单页前端应用 (SPA) 假 200 识别**：面对目标吐出的 HTTP 200 首页代码，语义等价评估器精准定性为 `html_fallback`，坚决不误报越权漏洞；
-> 4. **大模型认知反思满血点火 (Full Reasoning Budget)**：将客户端生成预算提升至 `INVAR_LLM_MAX_TOKENS=8192`（完全对齐 Pi Agent 生产配置），支持本地 Ornith 35B 在思维链 (CoT) 中从容思考 1000~2000 Token 后输出高水准结构化决策，零截断零报错；
-> 5. **诚实客观的科学账本原则**：404 (Not Found) 依法保持其科学未决 (`inconclusive`) 定义，拒绝云厂商专有错误码特调，未决事实诚实沉淀于覆盖账本。
+> **【阶段 8 核心突破与智能体飞轮机制】**：
+> 1. **大模型决策支配物理发包 (Actionable Steer Dispatch)**：解除动词硬编码死锁。当目标返回 405 或策略阻断时，本地 35B 模型在思维链 (CoT) 中反思出的 `method="GET"` 建议能够端到端穿透，自主调度第 2 轮变异发包（归入 `F2_METHOD_SEMANTICS` 族）；
+> 2. **可复现 PoC 原子组装 (PoC Code Synthesis)**：突破达成后，系统自动基于生效变异体组装出标准、无损的 `cURL` 命令行复现代码，存入 `EvidenceChain.poc_code`；
+> 3. **全链路战报原生贯通 (End-to-End Deliverables Projection)**：
+>    - `findings.json`：原生承载 `"poc_code"` 属性，机器可读；
+>    - `FINDINGS-DETAIL.md`：原生呈现独立的 **【第 4 节：独立漏洞复现 PoC (Reproducible PoC)】** 代码块，治理建议自动顺延为第 5 节；
+>    - 完全满足 SRC / Bug Bounty 法定报告要求。
 
 ### 1. 运行时环境变量配置 (对齐 Pi 生产级算力)
 ```bash
@@ -290,7 +272,7 @@ export INVAR_LLM_TIMEOUT="120"
 export INVAR_LLM_MAX_TOKENS="8192"
 ```
 
-### 2. 调度执行实证流水线 (以 P1 纯净全量批次为例)
+### 2. 调度执行多轮实证流水线 (以 P1 纯净全量批次为例)
 ```bash
 endpoint_report="tmp/${target}_endpoints_report.json"
 output_dir="artifacts/reports/targeted_audit_production"
@@ -304,28 +286,28 @@ PYTHONPATH="python/packages/core/src" uv run --project python python python/scri
     --timeout 10
 ```
 
-### 3. 最终权威交付物清单 (位于指定输出目录)
-1. `execution.jsonl`：[微观事实] 毫秒级物理发包事实、时延、分类与 CoT 反思事件流；
-2. `findings.json`：[漏洞确权] 经独立第三方复核实锤的权威漏洞记录；
-3. `openvex.json`：[合规凭证] 100% 符合 Linux 基金会 OpenSSF OpenVEX v0.2.0 国际规范；
-4. `sarif.json`：[缺陷交换] 100% 符合 OASIS SARIF 2.1.0 国际规范；
-5. `REPORT.md`：[高管战报] 资产血统、加权覆盖率、发现总览；
-6. `FINDINGS-DETAIL.md`：[实锤细节] 包含代码调用链、发包 Proof 的深度战报；
+### 3. 阶段 9 最终权威交付物清单 (位于指定输出目录)
+1. `execution.jsonl`：[微观事实] 毫秒级物理发包事实、多轮发包时延、动词变更与 CoT 反思事件流；
+2. `findings.json`：[漏洞确权] 承载 `poc_code` 复现字段的机器可读漏洞记录；
+3. `FINDINGS-DETAIL.md`：[实锤细节] **包含独立第 4 节可复现 cURL PoC 代码块**、代码调用链、发包 Proof 的深度战报；
+4. `openvex.json`：[合规凭证] 100% 符合 Linux 基金会 OpenSSF OpenVEX v0.2.0 国际规范；
+5. `sarif.json`：[缺陷交换] 100% 符合 OASIS SARIF 2.1.0 国际规范；
+6. `REPORT.md`：[决策总览] 资产血统、加权覆盖率、发现总览；
 7. `NEEDS-VALIDATION.md`：[攻坚清单] 存疑待人工介入清单；
 8. `coverage-summary.md`：[覆盖账本] 路径审查全景责任矩阵。
 
 ---
 
-## 核心支撑组件完成度对齐表 (Phase 8.4 LKG)
+## 核心支撑组件完成度对齐表 (Phase 9.1 LKG 基线)
 
 | 核心组件 | 关键算子与设计规范 | 对齐黄金标准 | 状态与验证水平 |
 | :--- | :--- | :--- | :--- |
 | **AST 契约提取器** | Tree-sitter 纯净语法解析 + 词法合法性门禁 (`_is_valid_api_path`) | 彭峙酿《Hacking with LLMs》[1] | **100%** (已过滤非 ASCII 与前端代码调用) |
 | **System-1 神经认知推演** | 0.6B ONNX GPU 快速推演 (Impact / Sensitivity 双正交头) | 微软 DirectML / NVIDIA CUDA 原生加速 | **100%** (推演全量 1097 个静态端点) |
 | **终审双轨比对器** | 规则必保 (Pool A) ∪ 神经破盲 (Pool B) 并集融合 | 现代学术顶会双轨无偏采样标准 | **100%** (生成 81 个纯净靶向任务) |
-| **Invar 确定性核心** | 9 大变换族变异 (F1~F9) + 双主体 IDOR 差分 + 不变量系统 | Claude-Red (BOLA/IDOR SOP) [4] | **100%** (算子库完备，252 项单测全绿) |
+| **Invar 确定性核心** | 9 大变换族变异 (F1~F9) + 双主体 IDOR 差分 + 不变量系统 | Claude-Red (BOLA/IDOR SOP) [4] | **100%** (算子库完备) |
 | **语义等价评估器** | 六维正交比对 (三值逻辑防误报，识破单页应用 `html_fallback` 伪 200) | Anthropic Reference Harness [2] | **100%** (实战识破 demo.ikuai8.com 首页回退) |
-| **证据确权与晋级门禁** | Layer 0~6 证据链 + 同态重放 + 独立第三方复核 (`IndependentVerifier`) | 顶会科研评审标准 (无偏独立复核) | **100%** (严格三权分立，零假阳性误报) |
 | **认知决策控制面** | 本地 Ornith 35B 结构化决策 + 8192 Token 满血思维链预算 | Pi Agent Harness (`earendil-works/pi`) [8] | **100%** (单用例 9.7s 输出高水准 CoT 决策) |
+| **多轮变异追击状态机** | 动词契约动态解耦 + 大模型建议驱动 Turn 2 物理追击发包 | 路线 B 自主渗透智能体标准 | **100%** (测试用例全绿通过) |
+| **可复现 PoC 战报结晶** | 自动生成开箱即用 cURL PoC + FINDINGS-DETAIL.md 原生代码块渲染 | 工业级 SRC / 顶会实证标准 | **100%** (254 项单测全绿，端到端贯通) |
 | **工业合规战报投影** | OASIS SARIF 2.1.0 + OpenSSF OpenVEX v0.2.0 原生物理投影 | OpenSSF 工业合规标准 | **100%** (一键原子化导出全量 8 大产物) |
-

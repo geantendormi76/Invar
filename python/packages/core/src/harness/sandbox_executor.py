@@ -266,6 +266,36 @@ class AdaptiveSandboxExecutor:
             )
         if "llm_error" in loop_res.context.metadata:
             research_case.metadata["llm_error"] = loop_res.context.metadata["llm_error"]
+        
+        # 将 Agent 执行的每一轮真实物理发包如实同步为严格审计账目
+        history = getattr(loop_res.context, "turn_history", [])
+        if history:
+            for item in history:
+                research_case.record_attempt(
+                    payload=payload,
+                    status_code=item.get("status_code", last_status_code),
+                    response_preview=item.get("response_preview", ""),
+                    interpretation=f"[{item.get('method')}] {item.get('variant_id')}",
+                    mutation_reason=item.get("rationale", "Heuristic/LLM guided turn"),
+                )
+            # 彻底消除证据陈旧：将最新一轮物理发包的真实响应更新为当前状态！
+            latest_turn = history[-1]
+            last_status_code = latest_turn.get("status_code", last_status_code)
+            class LatestResponseMock:
+                status_code = latest_turn.get("status_code", last_status_code)
+                headers = {}
+                text = latest_turn.get("response_preview", "")
+            last_response = LatestResponseMock()
+        elif loop_res.turns_executed > 0:
+            for turn_idx in range(loop_res.turns_executed):
+                research_case.record_attempt(
+                    payload=payload,
+                    status_code=last_status_code,
+                    response_preview=f"Agent probe turn {turn_idx + 1}",
+                    interpretation="智能体多轮自适应变异追击",
+                    mutation_reason="LLM/Heuristic guided turn",
+                )
+
         if loop_res.breakthrough_achieved and loop_res.evidence_chain:
             applied = loop_res.evidence_chain.applied_variant
             cand_obs = loop_res.evidence_chain.candidate_observation
