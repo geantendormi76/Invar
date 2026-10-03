@@ -109,25 +109,20 @@ class InvariantEvaluator:
 
         # 2. 敏感路由认证与授权边界不变量
         elif inv_type == "auth_boundary":
-            is_sensitive = (
-                "sensitive-route" in endpoint.tags
-                or "admin" in endpoint.tags
-                or any(k in endpoint.path.lower() for k in ["admin", "private", "manage"])
-            )
             normalized_headers = {k.lower(): v for k, v in (headers or {}).items()}
             has_auth = any(k in normalized_headers and bool(normalized_headers[k]) for k in AUTH_HEADERS)
 
-            # 分支 A: 服务端明确返回了拒绝响应（HTTP 401/403、业务软拒绝或前端页面兜底）
-            if status_code in [401, 403] or is_soft_denial or cls._is_response_denial(response_text):
+            # 分支 A: 服务端明确返回了策略拒绝响应（HTTP 401/403/405、业务软拒绝或前端页面兜底）
+            if status_code in [401, 403, 405] or is_soft_denial or cls._is_response_denial(response_text):
                 return InvariantEvaluation(
                     invariant_type=inv_type,
                     status="confirmed",
-                    rationale="服务端返回了严格的未授权拒绝响应 (401/403 或业务层拦截/前端页面兜底)，安全边界坚固",
+                    rationale="服务端返回了严格的未授权拒绝响应 (401/403/405 或业务层拦截/前端页面兜底)，安全边界坚固",
                 )
 
             # 分支 B: 状态码看似成功放行 (200~299) 且未命中拒绝
             if 200 <= status_code <= 299:
-                if not has_auth and is_sensitive:
+                if not has_auth:
                     return InvariantEvaluation(
                         invariant_type=inv_type,
                         status="vulnerable",

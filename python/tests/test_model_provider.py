@@ -94,14 +94,17 @@ class ModelProviderContractTests(unittest.TestCase):
             }],
         }
 
-        with patch.object(self.provider.session, "post", return_value=fake_resp) as post_mock:
-            data = self.provider.generate_structured_json(
-                messages=[{"role": "user", "content": "return json"}],
-            )
+        import os
+        with patch.dict(os.environ, {}, clear=False):
+            os.environ.pop("INVAR_LLM_MAX_TOKENS", None)
+            with patch.object(self.provider.session, "post", return_value=fake_resp) as post_mock:
+                data = self.provider.generate_structured_json(
+                    messages=[{"role": "user", "content": "return json"}],
+                )
 
-        request_payload = post_mock.call_args.kwargs["json"]
-        self.assertEqual(data["rationale"], "test")
-        self.assertEqual(request_payload["max_tokens"], 256)
+            request_payload = post_mock.call_args.kwargs["json"]
+            self.assertEqual(data["rationale"], "test")
+            self.assertEqual(request_payload["max_tokens"], 4096)
         self.assertEqual(request_payload["response_format"], {"type": "json_object"})
         self.assertEqual(
             request_payload["chat_template_kwargs"],

@@ -4,6 +4,7 @@ import json
 import re
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
+from urllib.parse import urlsplit
 from typing import Any, Dict, List, Optional, Set
 
 IDOR_KEYWORDS: Set[str] = {
@@ -100,12 +101,49 @@ class TriageDispatcher:
         # 安全兜底为 POST (通常状态操作端点居多) 或 GET
         return "POST" if (m in {"E", "T", "P"}) else "GET"
 
+    def _is_valid_api_path(self, path: Any) -> bool:
+        """
+        RFC 3986 与安全工程清洗门禁：拦截非合法 API 路径、中文法律文本与前端代码调用残片
+        """
+        if not path or not isinstance(path, str):
+            return False
+        p = path.strip()
+        if not p or len(p) < 2:
+            return False
+
+        # 1. 严禁换行符、回车符与制表符
+        if any(c in p for c in ("\n", "\r", "\t")):
+            return False
+
+        # 2. 严格要求纯 ASCII 编码 (一票否决大段中文法律条款与富文本)
+        try:
+            p.encode("ascii")
+        except UnicodeEncodeError:
+            return False
+
+        # 3. 拦截明显的前端类方法调用与客户端代码残片
+        p_lower = p.lower()
+        client_code_signatures = [
+            "this.", "window.", "document.", "endpointfor(",
+            ".requestrouter", "function(", "=>", "var ", "let ", "const ",
+            "@-webkit", "keyframes"
+        ]
+        if any(sig in p_lower for sig in client_code_signatures):
+            return False
+
+        return True
+
     def _normalize_path(self, raw_path: Any) -> str:
-        """确保路径必须以前导 / 开始"""
+        """
+        基于 RFC 3986 规范提取资源路径：标准分离 path 与 query，杜绝特定符号特调
+        """
         p = str(raw_path or "").strip()
-        if not p.startswith("/"):
-            p = "/" + p
-        return p
+        # 标准 URI 结构解构：严格提取资源路径部分，参数部分由参数系统独立承载
+        parsed = urlsplit(p)
+        clean_path = parsed.path.strip()
+        if not clean_path.startswith("/"):
+            clean_path = "/" + clean_path
+        return clean_path
 
     def _compact_slice(self, raw_slice: Optional[str]) -> Optional[str]:
         """将长单行前端混淆切片压缩至安全字符上限，杜绝 IPC 膨胀"""
@@ -118,9 +156,9 @@ class TriageDispatcher:
 
     def _extract_subsystem(self, path: str) -> str:
         parts = [p for p in path.strip("/").split("/") if p and not p.startswith("v")]
-        if len(parts) > 1 and parts[0] == "api":
-            return parts[1]
-        return parts[0] if parts else "root"
+        raw_sub = parts[1] if (len(parts) > 1 and parts[0] == "api") else (parts[0] if parts else "root")
+        sub_clean = re.sub(r"[^a-zA-Z0-9_-]+", "_", raw_sub).strip("_")
+        return sub_clean[:32] if sub_clean else "root"
 
     def classify_and_assemble(
         self,
@@ -244,6 +282,10 @@ class TriageDispatcher:
         for sid, origin_pool in wanted_surfaces.items():
             if sid in surface_records:
                 record = surface_records[sid]
+                raw_path = str(record.get("path", "")).strip()
+                # 激活清洗门禁：直接阻断非法路径与脏样本装配
+                if not self._is_valid_api_path(raw_path):
+                    continue
                 task = self.classify_and_assemble(record, pool_origin=origin_pool)
                 assembled_tasks.append(task)
 

@@ -101,12 +101,18 @@ class OpenAICompatibleProvider:
         self,
         messages: List[Dict[str, str]],
         temperature: float = 0.1,
-        max_tokens: int = 256,
+        max_tokens: Optional[int] = None,
     ) -> Dict[str, Any]:
+        # 优先读取环境变量 INVAR_LLM_MAX_TOKENS，默认对齐现代思维链模型 4096 预算
+        effective_max_tokens = (
+            max_tokens
+            if max_tokens is not None
+            else int(os.getenv("INVAR_LLM_MAX_TOKENS", "4096"))
+        )
         raw_resp = self.chat_completion(
             messages=messages,
             temperature=temperature,
-            max_tokens=max_tokens,
+            max_tokens=effective_max_tokens,
             response_format={"type": "json_object"},
             enable_thinking=False,
         )
@@ -228,10 +234,11 @@ class OpenAICompatibleProvider:
         try:
             decoded = self._extract_json_object(partial_content + c_content)
         except ModelProviderError:
+            combined_preview = (partial_content + c_content)[:200]
             raise ModelProviderError(
-                "LLM length truncation recovery failed: first finish_reason=length and "
-                "a single continuation did not yield a parseable JSON object. "
-                "combined content was: {(partial_content + c_content)[:200]}"
+                f"LLM length truncation recovery failed: first finish_reason=length and "
+                f"a single continuation did not yield a parseable JSON object. "
+                f"combined content was: {combined_preview}"
             )
         if not isinstance(decoded, dict):
             raise ModelProviderError("LLM structured output must be a JSON object")

@@ -158,7 +158,7 @@ Research Seed Inventory
 
 [DECISION]
 
-**基于已验证的 Phase 8.2 假说驱动沙箱闭环，展开受控的 P1 优先级小批量动态实证审计 (Phase 8.3 Small Batch)。**
+**P1 级高危状态变更任务实证审计已达泛化闭环 (Phase 8.4 Canonical 完成)，下一步推进至 P2 级规则硬保底大批次任务动态实证 (Phase 8.5 P2 Batch, 54 tasks)。**
 
 当前最近一次真实动态实验：
 
@@ -198,7 +198,7 @@ Result:
 
 [TODO]
 
-**执行小规模 P1 优先级批量动态审计验证 (例如 3~5 个任务)，验证长流程稳定性与断点连续性。**
+**运行 P2 优先级任务批次抽样实证 (例如首发 5~10 个 P2 任务)，检验规则硬保底靶标在假说驱动体系下的覆盖账本吞吐与稳定性。**
 
 检查：
 
@@ -370,6 +370,16 @@ successfully activated
 Artifact:
 artifacts/reports/targeted_research_tasks.json
 ```
+
+### Phase 8.4 Canonical Run (P1 Batch Verified)
+
+[FACT]
+
+- **装配总数**: 81 个任务 (经过词法合法性门禁过滤后的纯净任务库，剔除 5 个非 API 污染样本)
+- **P1 审计**: 5 个纯净 P1 任务全量执行 (phase8_p1_canonical)
+- **模型推理**: 本地 Ornith 35B GGUF 8192 满血预算，Task 4 成功耗时 9.7s 输出高水准 CoT 决策，零截断零报错
+- **覆盖表现**: 2/3 (66.67% 加权覆盖率，fs 与 users 单元完全覆盖，audit-logs 单元因 404 诚实未决)
+- **单测基准**: 全量 252 项单元与契约测试 100% 纯绿保持 (252 passed in 0.59s)
 
 ### Latest Experiment
 
