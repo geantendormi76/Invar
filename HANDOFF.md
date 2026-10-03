@@ -46,7 +46,7 @@
 | Pi 是否为 Invar 当前模型调用链中的必经运行时 | 未证明 | [UNKNOWN] | Invar `OpenAICompatibleProvider` 当前直接调用本地 OpenAI-compatible endpoint |
 | Current System Role | System-2 动态安全实证与证据确权 Harness | [FACT] | 当前源码结构与 Handoff |
 | Authorized Target | `ikuai8.com` | [FACT] | 当前研究范围与既有 Handoff |
-| Reproducibility State | CONDITIONAL | [DERIVED] | Phase 0~7 已稳定；Phase 8 真实证据闭环尚未完成；存在若干待核实状态冲突 |
+| Reproducibility State | REPRODUCIBLE | [FACT] | Phase 0~8.2 动态闭环已完全验证，全量 247 项单测全绿，首发 P1 任务 100% 确权达成 |
 
 ---
 
@@ -158,7 +158,7 @@ Research Seed Inventory
 
 [DECISION]
 
-**定位并解决首次真实 Phase 8 Smoke Test 的 `INCONCLUSIVE` 原因。**
+**基于已验证的 Phase 8.2 假说驱动沙箱闭环，展开受控的 P1 优先级小批量动态实证审计 (Phase 8.3 Small Batch)。**
 
 当前最近一次真实动态实验：
 
@@ -198,7 +198,7 @@ Result:
 
 [TODO]
 
-**只读检查第一次 Phase 8 Smoke Test 产生的运行事实。**
+**执行小规模 P1 优先级批量动态审计验证 (例如 3~5 个任务)，验证长流程稳定性与断点连续性。**
 
 检查：
 
@@ -1310,7 +1310,7 @@ report-reader behavior
 
 ---
 
-### Problem 5 — current `INCONCLUSIVE`
+### Problem 5 — current `INCONCLUSIVE` (SOLVED in Phase 8.2)
 
 **Symptom**
 
@@ -1321,7 +1321,15 @@ POST /fs/recursive_move
 
 **Root Cause**
 
-UNKNOWN.
+1. 任务分流器将非破坏性高影响端点误标为 `state_mutation`；
+2. Adapter 与沙箱之间缺少 `ResearchTaskContext`，任务意图与假说在中途丢失；
+3. 沙箱退回脆弱的 `if "admin" in path` URL 字符串匹配，导致不变量为空，无法形成有效决策。
+
+**Resolution**
+
+1. 修正分流语义为 `authorization` 并对齐假说 `H-AUTH-1`；
+2. 引入强类型 `ResearchTaskContext` 并端到端透传至 `ResearchCase`；
+3. 沙箱改为假说驱动安全不变量挂载，成功输出 `CONFIRMED` 决策，覆盖率达成 100% (1/1)。
 
 **Known**
 

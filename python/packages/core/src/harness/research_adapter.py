@@ -1,3 +1,4 @@
+from .domain_contracts import ResearchTaskContext
 from typing import Any, Dict, List, Optional
 
 from harness.models import EndpointIR, EndpointNotFoundError, EndpointRegistry
@@ -113,9 +114,11 @@ class ResearchTaskAdapter:
             or task.get("case_id")
             or endpoint.endpoint_id
         )
+        task_context = ResearchTaskContext.from_task_dict(task)
         execution_result = executor.probe_endpoint_with_research(
             endpoint,
             base_url=base_url,
+            task_context=task_context,
         )
         return cls.result_to_dict(execution_result, task_id=task_id)
 

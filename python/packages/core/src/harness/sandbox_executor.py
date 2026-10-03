@@ -5,6 +5,7 @@ from urllib.parse import urlparse
 
 from harness.config import InvarConfig
 from harness.denial_models import DenialObservation, DeterministicDenialClassifier
+from .domain_contracts import ResearchTaskContext
 from harness.domain_contracts import IDOR_KEYWORDS
 from harness.evidence import EvidenceRecord, HTTPRequestLog, HTTPResponseLog
 from harness.feedback import FeedbackInterpreter
@@ -144,10 +145,11 @@ class AdaptiveSandboxExecutor:
             return f"{effective_base_url.rstrip('/')}/{endpoint.path.lstrip('/')}"
         return f"{self.cfg.target_api_base.rstrip('/')}/{endpoint.path.lstrip('/')}"
 
-    def _create_research_case(self, endpoint: EndpointIR) -> ResearchCase:
+    def _create_research_case(self, endpoint: EndpointIR, task_context: Optional[ResearchTaskContext] = None) -> ResearchCase:
         case = ResearchCase(
             case_id=f"{endpoint.method.upper()}:{endpoint.path}",
             endpoint=endpoint,
+            task_context=task_context,
             metadata={"engine": "AdaptiveSandboxExecutor"},
         )
         is_destructive = (
@@ -192,6 +194,32 @@ class AdaptiveSandboxExecutor:
                 )
             )
         
+        # 依据科学假说驱动安全不变量挂载 (黄金标准: 消除 URL 关键词盲区)
+        if task_context is not None:
+            existing_types = {inv.invariant_type for inv in case.invariants}
+            if (task_context.hypothesis_id == "H-AUTH-1" or task_context.attack_class == "authorization") and "auth_boundary" not in existing_types:
+                case.add_invariant(
+                    SecurityInvariant(
+                        invariant_type="auth_boundary",
+                        statement="Sensitive administration routes must enforce authentication",
+                    )
+                )
+            if (task_context.hypothesis_id == "H-DESTRUCT-1" or task_context.attack_class == "destructive_action") and "destructive_confirmation" not in existing_types:
+                case.add_invariant(
+                    SecurityInvariant(
+                        invariant_type="destructive_confirmation",
+                        statement="Destructive actions must require explicit confirmation",
+                    )
+                )
+            if (task_context.hypothesis_id == "H-IDOR-1" or task_context.attack_class == "idor_boundary") and "idor_boundary" not in existing_types:
+                if self.cfg.auth_token_b:
+                    case.add_invariant(
+                        SecurityInvariant(
+                            invariant_type="idor_boundary",
+                            statement="Object identifiers must enforce cross-tenant authorization",
+                        )
+                    )
+
         hyp_engine = _resolve_hypothesis_engine()
         if hyp_engine and hasattr(hyp_engine, "attach_to_case"):
             hyp_engine.attach_to_case(case)
@@ -273,11 +301,12 @@ class AdaptiveSandboxExecutor:
         self,
         endpoint: EndpointIR,
         base_url: Optional[str] = None,
+        task_context: Optional[ResearchTaskContext] = None,
     ) -> ResearchExecutionResult:
         url = self._build_url(endpoint, base_url=base_url)
         headers = dict(self.cfg.custom_headers)
         payload = self._build_initial_payload(endpoint)
-        research_case = self._create_research_case(endpoint)
+        research_case = self._create_research_case(endpoint, task_context=task_context)
         last_response = None
         for _ in range(int(self.cfg.max_mutation_rounds)):
             try:
@@ -505,10 +534,12 @@ class AdaptiveSandboxExecutor:
         self,
         endpoint: EndpointIR,
         base_url: Optional[str] = None,
+        task_context: Optional[ResearchTaskContext] = None,
     ) -> ResearchExecutionResult:
         return self._probe_endpoint_with_research_case(
             endpoint,
             base_url=base_url,
+            task_context=task_context,
         )
 
     def probe_endpoint(

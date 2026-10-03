@@ -34,6 +34,7 @@ from harness.coverage_ledger import (
 from harness.exporter import EndpointExporter
 from harness.finding_models import ExecutionRecord, FindingRecord, Remediation, Severity, Verdict
 from harness.models import EndpointIR, EndpointRegistry
+from harness.domain_contracts import ResearchTaskContext
 from harness.reporting import ReportProjector
 from harness.research_adapter import ResearchTaskAdapter
 from harness.run_models import ExecutionPolicy, ResearchRun, ResearchScope, RunProfile, RunStatus
@@ -399,10 +400,12 @@ def main() -> int:
 
         t0 = time.perf_counter()
 
+        task_context = ResearchTaskContext.from_task_dict(task)
         try:
             exec_res = executor.probe_endpoint_with_research(
                 endpoint,
                 base_url=args.base_url,
+                task_context=task_context,
             )
 
             elapsed_ms = (

@@ -114,10 +114,11 @@ class ResearchTaskAdapterTests(unittest.TestCase):
             },
         ]
 
-        def fake_probe(endpoint, base_url=None):
+        def fake_probe(endpoint, base_url=None, task_context=None):
             case = ResearchCase(
                 case_id=f"{endpoint.method}:{endpoint.path}",
                 endpoint=endpoint,
+                task_context=task_context,
             )
             case.record_attempt(
                 payload={},

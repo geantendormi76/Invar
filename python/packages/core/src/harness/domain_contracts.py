@@ -828,6 +828,30 @@ class ResearchDecision:
     rationale: str
 
 
+@dataclass(frozen=True)
+class ResearchTaskContext:
+    """
+    Invar 科研任务意图上下文契约 (Research Task Intent Context)
+    对标 Anthropic Reference Harness 规范，将测试意图、安全假说与物理端点事实彻底解耦
+    """
+    task_id: str
+    hypothesis_id: Optional[str] = None
+    attack_class: Optional[str] = None
+    profile: Optional[str] = None
+    coverage_id: Optional[str] = None
+    priority: Optional[str] = None
+
+    @classmethod
+    def from_task_dict(cls, task: Dict[str, Any]) -> "ResearchTaskContext":
+        return cls(
+            task_id=str(task.get("task_id") or ""),
+            hypothesis_id=task.get("hypothesis_id"),
+            attack_class=task.get("attack_class"),
+            profile=task.get("profile"),
+            coverage_id=task.get("coverage_id"),
+            priority=task.get("priority"),
+        )
+
 @dataclass
 class ResearchCase:
     case_id: str
@@ -837,6 +861,7 @@ class ResearchCase:
     attempts: List[ProbeAttempt] = field(default_factory=list)
     decision: Optional[ResearchDecision] = None
     metadata: Dict[str, Any] = field(default_factory=dict)
+    task_context: Optional["ResearchTaskContext"] = None
 
     def add_invariant(self, invariant: SecurityInvariant) -> None:
         self.invariants.append(invariant)

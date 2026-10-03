@@ -101,10 +101,11 @@ class ResearchWorkerTests(unittest.TestCase):
         stdin_stream = io.StringIO(json.dumps(tasks_payload))
         stdout_stream = io.StringIO()
 
-        def fake_probe(endpoint, base_url=None):
+        def fake_probe(endpoint, base_url=None, task_context=None):
             case = ResearchCase(
                 case_id=f"{endpoint.method}:{endpoint.path}",
                 endpoint=endpoint,
+                task_context=task_context,
             )
             case.record_attempt(
                 payload={},
