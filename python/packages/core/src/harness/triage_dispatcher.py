@@ -164,7 +164,7 @@ class TriageDispatcher:
             priority = "P1"
             profile = "p1_state_mutation_safety"
             hypothesis_id = "H-DESTRUCT-1" if is_destructive else "H-AUTH-1"
-            attack_class = "destructive_action" if is_destructive else "state_mutation"
+            attack_class = "destructive_action" if is_destructive else "authorization"
         # 策略 3: P1 级敏感资产泄露与 IDOR
         elif is_high_sens:
             priority = "P1"
